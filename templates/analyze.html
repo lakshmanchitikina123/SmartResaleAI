@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartResale - High-Precision Item Valuation</title>
+    
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg fixed-top">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <span class="brand-icon"><i class="bi bi-recycle"></i></span>
+            SmartResale
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <i class="bi bi-list"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/"><i class="bi bi-house"></i> Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/analyze"><i class="bi bi-stars"></i> Analyze Item</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/marketplace"><i class="bi bi-shop"></i> Marketplace</a>
+                </li>
+                {% if session.get('user_id') %}
+                    <li class="nav-item"><a class="nav-link" href="/dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                    <li class="nav-item position-relative">
+                        <a class="nav-link" href="/notifications">
+                            <i class="bi bi-bell"></i>
+                            {% if unread_notifications_count > 0 %}
+                                <span class="position-absolute top-1 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:9px;padding:3px 6px;">{{ unread_notifications_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/logout"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                {% else %}
+                    <li class="nav-item"><a class="nav-link" href="/login"><i class="bi bi-person"></i> Login</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container analyze-section" style="padding-top: 130px; padding-bottom: 80px;">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            
+            <div class="analyzer-card">
+                <div class="analyzer-header">
+                    <div class="analyzer-title">
+                        <div class="analyzer-icon">
+                            <i class="bi bi-cpu"></i>
+                        </div>
+                        <div>
+                            <h4>High-Precision Valuation Engine</h4>
+                            <p>Calculate realistic resale value tuned by category depreciation curves & brand equity</p>
+                        </div>
+                    </div>
+                    <span class="step-badge"><i class="bi bi-shield-check text-success me-1"></i> VERIFIED VALUATION</span>
+                </div>
+
+                <!-- FLASH MESSAGES -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show mb-4 border-0 rounded-4 shadow-sm" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="/analyze" id="valuationForm" enctype="multipart/form-data">
+                    <div class="row g-4">
+                        <!-- CATEGORY -->
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-grid-3x3-gap"></i> Category</label>
+                            <select name="categoryName" id="categoryName" class="form-select form-control-custom" required>
+                                <option value="" disabled {% if not categoryName %}selected{% endif %}>Select category</option>
+                                {% for cat in ['Vehicles', 'Electronics', 'Home Appliances', 'Furniture & Home Decor', 'Books, Sports & Hobbies', 'Other'] %}
+                                    <option value="{{ cat }}" {% if categoryName is defined and categoryName == cat %}selected{% elif cat == 'Vehicles' and not categoryName %}selected{% endif %}>{{ cat }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- LOCATION -->
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-geo-alt"></i> Location</label>
+                            <input type="text" name="location" class="form-control-custom" placeholder="e.g. Bangalore, Mumbai, Delhi NCR" value="{{ location if location is defined else '' }}" required>
+                        </div>
+
+                        <!-- BRAND -->
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-building"></i> Brand / Manufacturer</label>
+                            <input type="text" name="brand" id="brandInput" list="verifiedBrandsList" class="form-control-custom" placeholder="e.g. Hyundai, Apple, Dell, Toyota, Samsung, IKEA..." value="{{ brand if brand is defined else '' }}" autocomplete="off" required>
+                            <datalist id="verifiedBrandsList">
+                                <option value="Toyota">
+                                <option value="Maruti Suzuki">
+                                <option value="Hyundai">
+                                <option value="Kia">
+                                <option value="Honda">
+                                <option value="Mahindra">
+                                <option value="Tata Motors">
+                                <option value="Royal Enfield">
+                                <option value="Volkswagen">
+                                <option value="Skoda">
+                                <option value="BMW">
+                                <option value="Mercedes-Benz">
+                                <option value="Apple">
+                                <option value="Samsung">
+                                <option value="Sony">
+                                <option value="Dell">
+                                <option value="HP">
+                                <option value="Lenovo">
+                                <option value="Asus">
+                                <option value="OnePlus">
+                                <option value="Google Pixel">
+                                <option value="Xiaomi">
+                                <option value="LG">
+                                <option value="Whirlpool">
+                                <option value="Bosch">
+                                <option value="IKEA">
+                                <option value="Pepperfry">
+                            </datalist>
+                            <small class="text-muted" style="font-size: 11px;">Recognized brands receive automated brand equity retention benefits.</small>
+                        </div>
+
+                        <!-- CONDITION -->
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-patch-check"></i> Physical Condition</label>
+                            <select name="condition" id="conditionSelect" class="form-select form-control-custom" required>
+                                <option value="" disabled>Select condition</option>
+                                {% for cond in ['New', 'Like New', 'Good', 'Fair', 'Used', 'Poor'] %}
+                                    <option value="{{ cond }}" {% if condition is defined and condition == cond %}selected{% elif cond == 'Good' and not condition %}selected{% endif %}>{{ cond }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- PURCHASE ORIGIN (FIRSTHAND VS SECONDHAND) -->
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-bag-check"></i> Ownership Origin</label>
+                            <select name="purchase_type" id="purchaseTypeSelect" class="form-select form-control-custom" required>
+                                <option value="firsthand" {% if purchase_type is not defined or not purchase_type or purchase_type == 'firsthand' %}selected{% endif %}>Firsthand (Bought Brand New / 1st Owner)</option>
+                                <option value="secondhand" {% if purchase_type is defined and purchase_type == 'secondhand' %}selected{% endif %}>Secondhand (Bought Used / Pre-Owned / 2nd+ Hand)</option>
+                            </select>
+                            <small class="text-muted" style="font-size: 11px;">Single-owner items retain full provenance value; 2nd-hand items reflect multi-owner market rates.</small>
+                        </div>
+
+                        <!-- AGE -->
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-calendar3"></i> Item Age (Months)</label>
+                            <input type="number" name="age" id="ageInput" class="form-control-custom" placeholder="e.g. 12 (1 year)" value="{{ age if age is defined and age else '' }}" required>
+                            <div class="d-flex gap-1 mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary border-secondary border-opacity-25 text-light px-1 py-0" style="font-size:10px;" onclick="document.getElementById('ageInput').value=6;">6 Mo</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary border-secondary border-opacity-25 text-light px-1 py-0" style="font-size:10px;" onclick="document.getElementById('ageInput').value=12;">1 Yr</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary border-secondary border-opacity-25 text-light px-1 py-0" style="font-size:10px;" onclick="document.getElementById('ageInput').value=24;">2 Yrs</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary border-secondary border-opacity-25 text-light px-1 py-0" style="font-size:10px;" onclick="document.getElementById('ageInput').value=36;">3 Yrs</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary border-secondary border-opacity-25 text-light px-1 py-0" style="font-size:10px;" onclick="document.getElementById('ageInput').value=60;">5 Yrs</button>
+                            </div>
+                        </div>
+
+                        <!-- TITLE -->
+                        <div class="col-12">
+                            <label class="form-label"><i class="bi bi-card-heading"></i> Item Title</label>
+                            <input type="text" name="title" class="form-control-custom" placeholder="e.g. 2021 Hyundai Creta SX (O) Turbo / iPhone 14 Pro 128GB / Dell XPS 15 16GB" value="{{ title if title is defined else '' }}" required>
+                        </div>
+
+                        <!-- DESCRIPTION -->
+                        <div class="col-12">
+                            <label class="form-label"><i class="bi bi-text-paragraph"></i> Item Description</label>
+                            <textarea name="description" class="form-control-custom textarea-custom" rows="3" placeholder="Provide details like wear, accessories, storage, RAM, mileage, service records, bill/box...">{{ description if description is defined else '' }}</textarea>
+                        </div>
+
+                        <!-- PURCHASE PRICE -->
+                        <div class="col-12">
+                            <label class="form-label"><i class="bi bi-currency-rupee"></i> Purchase Price (₹)</label>
+                            <input type="number" step="0.01" name="original_price" id="originalPrice" class="form-control-custom" placeholder="e.g. 1400000" value="{{ original_price if original_price is defined and original_price else '' }}" required>
+                            <small class="text-muted" style="font-size: 11px;">The price you originally paid to acquire this item.</small>
+                        </div>
+
+                        <!-- ITEM PHOTO -->
+                        <div class="col-12">
+                            <label class="form-label"><i class="bi bi-image"></i> Item Photo (Image URL or File Upload)</label>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <input type="text" name="image_url" id="imageUrlInput" class="form-control-custom" placeholder="Paste image URL (e.g. https://images.unsplash.com/...)" value="{{ image_url if image_url is defined else '' }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="btn btn-outline-custom w-100 py-3 text-center mb-0" for="imageFileInput" style="cursor: pointer; font-size: 14px;">
+                                        <i class="bi bi-cloud-arrow-up me-1"></i> Choose File
+                                    </label>
+                                    <input type="file" name="image_file" id="imageFileInput" accept="image/*" style="display: none;">
+                                </div>
+                            </div>
+
+                            <!-- LIVE IMAGE PREVIEW CONTAINER -->
+                            <div class="image-preview-container mt-3" id="imagePreviewBox" style="{% if not image_url %}display: none;{% endif %}">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <span class="text-success small fw-bold" id="previewStatus">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Image Loaded & Verified
+                                    </span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger border-0 p-0" onclick="clearImagePreview()">
+                                        <i class="bi bi-x-circle"></i> Remove
+                                    </button>
+                                </div>
+                                <div class="preview-img-wrapper text-center">
+                                    <img src="{{ image_url if image_url is defined else '' }}" id="liveImg" alt="Preview" class="img-fluid rounded-3" style="max-height: 180px; object-fit: contain;" onerror="handleImgError()">
+                                </div>
+                                <div id="imgErrorMsg" class="text-danger small mt-1" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Could not load image from this URL. Please verify the link.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SELLER DETAILS -->
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-person"></i> Seller Name</label>
+                            <input type="text" name="seller_name" class="form-control-custom" placeholder="e.g. Rajesh Kumar" value="{{ seller_name if seller_name is defined else '' }}" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-telephone"></i> Seller Contact (Phone / WhatsApp)</label>
+                            <input type="text" name="seller_contact" class="form-control-custom" placeholder="e.g. +91 98765 43210" value="{{ seller_contact if seller_contact is defined else '' }}" required>
+                        </div>
+
+                        <!-- CALCULATE BUTTON -->
+                        <div class="col-12 mt-4 text-center">
+                            <button type="submit" class="btn-predict w-100 py-3 fs-5">
+                                <i class="bi bi-calculator me-2"></i>Calculate Resale Value
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- BRAND VALIDATION ERROR STATE -->
+                {% if not can_predict and error_message %}
+                <div class="result-section my-4" id="valuationResult">
+                    <div class="result-card p-4 text-center border-danger border-opacity-50">
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3 shadow-sm" style="width: 76px; height: 76px; background: rgba(239, 68, 68, 0.15); border: 2px solid rgba(239, 68, 68, 0.4);">
+                            <i class="bi bi-exclamation-octagon text-danger" style="font-size: 38px;"></i>
+                        </div>
+                        <h3 class="fw-bold text-danger mb-3" style="font-size: 24px;">Price Cannot Be Predicted</h3>
+                        <div class="alert alert-danger d-inline-block text-start border-0 rounded-4 py-3 px-4 mb-3 shadow-sm" style="max-width: 650px; background: rgba(239, 68, 68, 0.18); font-size: 16px; line-height: 1.6; color: #fff;">
+                            <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>
+                            <strong>Notice:</strong> {{ error_message }}
+                        </div>
+                        
+                        {% if suggested_brand %}
+                        <div class="my-3">
+                            <button type="button" class="btn suggestion-btn rounded-pill px-4 py-3 fw-bold shadow-lg fs-6" onclick="applySuggestedBrand('{{ suggested_brand }}')">
+                                <i class="bi bi-stars me-2"></i> Did you mean '{{ suggested_brand }}'? Click to Auto-Fill & Calculate Now &rarr;
+                            </button>
+                        </div>
+                        {% endif %}
+
+                        <div>
+                            <a href="#valuationForm" class="btn btn-outline-light rounded-pill px-4 py-2" onclick="document.getElementById('brandInput').focus();">
+                                <i class="bi bi-arrow-up-circle me-1"></i> Correct Category / Brand
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VALUATION RESULTS REPORT CARD -->
+                {% elif can_predict and predicted_price is defined and predicted_price %}
+                <div class="result-section" id="valuationResult">
+                    <div class="result-card">
+                        <div class="result-top">
+                            <div>
+                                <span class="result-label"><i class="bi bi-check-circle-fill me-1"></i> Valuation Certified</span>
+                                <h2>Fair Market Value Assessment</h2>
+                                <p>Tuned against real transaction datasets with {{ confidence }}% confidence rating.</p>
+                            </div>
+                            <div class="result-check">
+                                <i class="bi bi-stars"></i>
+                            </div>
+                        </div>
+
+                        <!-- Image Preview in Result Card if provided -->
+                        {% if image_url %}
+                        <div class="text-center my-3">
+                            <img src="{{ image_url }}" alt="{{ title }}" class="rounded-4 shadow" referrerpolicy="no-referrer" style="max-height: 200px; max-width: 100%; object-fit: cover;">
+                        </div>
+                        {% endif %}
+
+                        <!-- Price Highlight -->
+                        <div class="price-result">
+                            <span>Recommended Listing Price</span>
+                            <strong>₹{{ "{:,.2f}".format(predicted_price) }}</strong>
+                            <div class="d-flex justify-content-center gap-3 mt-2 flex-wrap">
+                                <span class="badge bg-dark border border-secondary text-info px-3 py-1">
+                                    <i class="bi bi-shop-window me-1"></i> Present Market Benchmark: ₹{{ "{:,.0f}".format(present_value) }}
+                                </span>
+                                <span class="badge bg-dark border border-secondary text-success px-3 py-1">
+                                    <i class="bi bi-graph-up-arrow me-1"></i> {{ retention_pct }}% Value Retained
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- FIRSTHAND VS SECONDHAND RESALE COMPARISON -->
+                        <div class="p-3 rounded-4 mb-4" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1);">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-white fw-bold small"><i class="bi bi-arrow-left-right text-info me-1"></i> Firsthand vs. Secondhand Market Comparison</span>
+                                <span class="badge bg-info bg-opacity-25 text-info" style="font-size:11px;">Provenance Spread: ₹{{ "{:,.0f}".format(ownership_difference) }}</span>
+                            </div>
+                            <div class="row g-2 text-center mt-1">
+                                <div class="col-6">
+                                    <div class="p-2 rounded-3 h-100" style="background: rgba(32, 184, 120, 0.08); border: 1px solid {% if purchase_type != 'secondhand' %}rgba(32, 184, 120, 0.5){% else %}rgba(255,255,255,0.08){% endif %};">
+                                        <div class="small text-muted" style="font-size:11px;">🏷️ 1st Hand (Single Owner)</div>
+                                        <div class="fs-5 fw-bold text-success mt-1">₹{{ "{:,.0f}".format(firsthand_price) }}</div>
+                                        <div class="text-muted" style="font-size:10px;">Full provenance & invoice integrity</div>
+                                        {% if purchase_type != 'secondhand' %}
+                                            <span class="badge bg-success mt-1" style="font-size:9px;">Active Calculation</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-2 rounded-3 h-100" style="background: rgba(255, 193, 7, 0.08); border: 1px solid {% if purchase_type == 'secondhand' %}rgba(255, 193, 7, 0.5){% else %}rgba(255,255,255,0.08){% endif %};">
+                                        <div class="small text-muted" style="font-size:11px;">🔄 2nd Hand (Pre-Owned)</div>
+                                        <div class="fs-5 fw-bold text-warning mt-1">₹{{ "{:,.0f}".format(secondhand_price) }}</div>
+                                        <div class="text-muted" style="font-size:10px;">Realistic multi-owner market rate</div>
+                                        {% if purchase_type == 'secondhand' %}
+                                            <span class="badge bg-warning text-dark mt-1" style="font-size:9px;">Active Calculation</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-muted small" style="font-size:11px; line-height:1.4;">
+                                <i class="bi bi-info-circle text-info me-1"></i> <strong>Real-World Market Rule:</strong> High-demand items retain strong pre-owned value. Secondhand items reflect an ~8%–10% multi-owner transition markdown without unfair double-depreciation.
+                            </div>
+                        </div>
+
+                        <!-- Retention & Depreciation Metrics -->
+                        <div class="retention-meter">
+                            <div>
+                                <span class="text-muted" style="font-size: 12px; text-transform: uppercase;">Value Retained</span>
+                                <div class="text-success fw-bold fs-5">{{ retention_pct }}%</div>
+                            </div>
+                            <div class="text-center">
+                                <span class="text-muted" style="font-size: 12px; text-transform: uppercase;">Total Depreciation</span>
+                                <div class="text-danger fw-bold fs-5">{{ depreciation_pct }}%</div>
+                            </div>
+                            <div class="text-end">
+                                <span class="text-muted" style="font-size: 12px; text-transform: uppercase;">Confidence</span>
+                                <div class="text-info fw-bold fs-5">{{ confidence }}% High</div>
+                            </div>
+                        </div>
+
+                        <!-- REAL-WORLD OUTSIDE MARKET RANGE -->
+                        <div class="price-range-bar-container mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-white fw-bold small"><i class="bi bi-globe2 text-cyan me-1"></i> Real-World Outside Market Range</span>
+                                <span class="text-muted small">Live secondary market bounds</span>
+                            </div>
+                            <div class="price-range-labels">
+                                <span>Dealer Buyback / Cashify:<br><strong class="text-light">₹{{ "{:,.0f}".format(outside_range_min) }}</strong></span>
+                                <span class="text-info fw-bold text-center"><i class="bi bi-dot"></i> Fair Target<br><strong class="text-white">₹{{ "{:,.0f}".format(predicted_price) }}</strong></span>
+                                <span class="text-end">Direct OLX Listing:<br><strong class="text-light">₹{{ "{:,.0f}".format(outside_range_max) }}</strong></span>
+                            </div>
+                            <div class="price-range-track mt-2">
+                                <div class="price-range-fill"></div>
+                            </div>
+                        </div>
+
+                        <!-- Value Factors & Spec Drivers (Automatically Extracted from Item) -->
+                        {% if spec_impacts %}
+                        <div class="p-3 rounded-4 mb-4" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-white fw-bold small"><i class="bi bi-sliders text-cyan me-1"></i> Valuation Drivers & Characteristics</span>
+                                <span class="text-muted small">{{ spec_impacts|length }} attributes recognized</span>
+                            </div>
+                            <div class="impact-badge-container">
+                                {% for imp in spec_impacts %}
+                                    <span class="impact-badge {% if imp.type == 'positive' %}pos{% else %}neg{% endif %}">
+                                        <i class="bi bi-{% if imp.type == 'positive' %}arrow-up-circle-fill{% else %}arrow-down-circle-fill{% endif %}"></i>
+                                        {{ imp.label }}: <strong>{{ imp.pct }}</strong>
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Future Forecast (1-Yr / 2-Yr Outlook) -->
+                        {% if future_forecast and future_forecast.future_1yr %}
+                        <div class="forecast-box mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-white fw-bold small"><i class="bi bi-clock-history text-cyan me-1"></i> Projected Future Valuation</span>
+                                <span class="text-muted small">Est. {{ future_forecast.deprec_rate_pct }}% annual decay</span>
+                            </div>
+                            <div class="forecast-timeline">
+                                <div class="forecast-point">
+                                    <div class="forecast-dot current"></div>
+                                    <div class="forecast-label">Today</div>
+                                    <div class="forecast-val">₹{{ "{:,.0f}".format(predicted_price) }}</div>
+                                </div>
+                                <div class="forecast-point">
+                                    <div class="forecast-dot"></div>
+                                    <div class="forecast-label">+1 Year</div>
+                                    <div class="forecast-val text-info">₹{{ "{:,.0f}".format(future_forecast.future_1yr) }}</div>
+                                </div>
+                                <div class="forecast-point">
+                                    <div class="forecast-dot"></div>
+                                    <div class="forecast-label">+2 Years</div>
+                                    <div class="forecast-val text-muted">₹{{ "{:,.0f}".format(future_forecast.future_2yr) }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Details Grid -->
+                        <div class="result-details">
+                            <div class="detail-item">
+                                <span>Category</span>
+                                <strong>{{ categoryName }}</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Brand</span>
+                                <strong class="text-success">{{ detected_brand or brand }} <span class="badge bg-success bg-opacity-25 text-success ms-1"><i class="bi bi-patch-check-fill me-1"></i>Verified</span></strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Condition</span>
+                                <strong>{{ condition }}</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Purchase Price</span>
+                                <strong>₹{{ "{:,.2f}".format(original_price) }}</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Present Benchmark</span>
+                                <strong class="text-info">₹{{ "{:,.2f}".format(present_value) }}</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Market Dynamics</span>
+                                <strong class="text-info">{{ outside_market_trend or 'High Liquidity' }}</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Age</span>
+                                <strong>{{ age }} Months</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Ownership Origin</span>
+                                <strong class="{% if purchase_type == 'secondhand' %}text-warning{% else %}text-success{% endif %}">
+                                    {{ 'Secondhand (2nd+ Hand)' if purchase_type == 'secondhand' else 'Firsthand (1st Hand)' }}
+                                </strong>
+                            </div>
+                            <div class="detail-item">
+                                <span>Price Basis</span>
+                                <strong>{{ 'Paid Secondhand' if price_basis == 'paid_secondhand' else 'Original Showroom New' }}</strong>
+                            </div>
+                        </div>
+
+                        <!-- Post Item Form -->
+                        <div class="mt-4 pt-3">
+                            <form method="POST" action="/analyze">
+                                <input type="hidden" name="title" value="{{ title }}">
+                                <input type="hidden" name="categoryName" value="{{ categoryName }}">
+                                <input type="hidden" name="brand" value="{{ brand }}">
+                                <input type="hidden" name="condition" value="{{ condition }}">
+                                <input type="hidden" name="purchase_type" value="{{ purchase_type }}">
+                                <input type="hidden" name="price_basis" value="{{ price_basis }}">
+                                <input type="hidden" name="location" value="{{ location }}">
+                                <input type="hidden" name="description" value="{{ description }}">
+                                <input type="hidden" name="original_price" value="{{ original_price }}">
+                                <input type="hidden" name="current_market_price" value="{{ current_market_price }}">
+                                <input type="hidden" name="age" value="{{ age }}">
+                                <input type="hidden" name="image_url" value="{{ image_url }}">
+                                <input type="hidden" name="seller_name" value="{{ seller_name }}">
+                                <input type="hidden" name="seller_contact" value="{{ seller_contact }}">
+                                <input type="hidden" name="predicted_price" value="{{ predicted_price }}">
+                                
+                                <button type="submit" name="save_item" value="true" class="btn-primary-custom w-100 justify-content-center py-3 fs-5">
+                                    <i class="bi bi-shop me-2"></i>Publish to Verified Marketplace Now
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer>
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="brand-icon"><i class="bi bi-recycle"></i></span>
+                SmartResale
+            </div>
+            <p class="mb-0">Built for precision valuation and pre-owned marketplace intelligence.</p>
+        </div>
+        <div class="footer-bottom text-center">
+            © 2026 SmartResale • All Rights Reserved.
+        </div>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Image Preview Logic
+const urlInput = document.getElementById('imageUrlInput');
+const fileInput = document.getElementById('imageFileInput');
+const liveImg = document.getElementById('liveImg');
+const previewBox = document.getElementById('imagePreviewBox');
+const previewStatus = document.getElementById('previewStatus');
+const imgErrorMsg = document.getElementById('imgErrorMsg');
+
+if (urlInput) {
+    urlInput.addEventListener('input', function() {
+        const val = this.value.trim();
+        if (val) {
+            liveImg.src = val;
+            previewBox.style.display = 'block';
+            imgErrorMsg.style.display = 'none';
+            previewStatus.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Web Image Attached';
+        } else {
+            previewBox.style.display = 'none';
+        }
+    });
+}
+
+if (fileInput) {
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                liveImg.src = event.target.result;
+                previewBox.style.display = 'block';
+                imgErrorMsg.style.display = 'none';
+                previewStatus.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> File Selected: ' + file.name;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+function handleImgError() {
+    if (imgErrorMsg) imgErrorMsg.style.display = 'block';
+    if (previewStatus) previewStatus.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Preview Failed';
+}
+
+function clearImagePreview() {
+    if (urlInput) urlInput.value = '';
+    if (fileInput) fileInput.value = '';
+    if (liveImg) {
+        liveImg.src = '';
+        liveImg.style.display = 'none';
+    }
+    if (previewBox) previewBox.style.display = 'none';
+    if (imgErrorMsg) imgErrorMsg.style.display = 'none';
+}
+
+// Auto-apply suggested brand and resubmit calculation
+function applySuggestedBrand(brandName) {
+    const brandInput = document.getElementById('brandInput');
+    if (brandInput) {
+        brandInput.value = brandName;
+        const form = document.getElementById('valuationForm');
+        if (form) {
+            form.submit();
+        }
+    }
+}
+
+// Auto-scroll to result or error if present on page load
+window.addEventListener('DOMContentLoaded', () => {
+    const res = document.getElementById('valuationResult');
+    if (res) {
+        res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+});
+</script>
+
+</body>
+</html>

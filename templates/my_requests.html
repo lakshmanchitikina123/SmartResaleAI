@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Contact Requests | SmartResale</title>
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .requests-page {
+            min-height: 100vh;
+            padding: 120px 20px 80px;
+        }
+        .requests-container {
+            max-width: 950px;
+            margin: auto;
+        }
+        .requests-card {
+            background: #13131d;
+            border: 1px solid #292936;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        }
+        .req-item {
+            background: #0d0d15;
+            border: 1px solid #252532;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .timeline {
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 25px;
+            padding: 0 10px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            right: 20px;
+            height: 2px;
+            background: #252532;
+            z-index: 1;
+        }
+        .timeline-step {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #13131d;
+            border: 2px solid #252532;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #777787;
+            font-size: 13px;
+            margin-bottom: 8px;
+            transition: 0.2s;
+        }
+        .timeline-step.active .step-circle {
+            border-color: #7157ff;
+            background: #7157ff;
+            color: white;
+            box-shadow: 0 0 12px rgba(113,87,255,0.4);
+        }
+        .timeline-step.completed .step-circle {
+            border-color: #20b878;
+            background: #20b878;
+            color: white;
+        }
+        .timeline-step.rejected .step-circle {
+            border-color: #dc3545;
+            background: #dc3545;
+            color: white;
+        }
+        .step-text {
+            font-size: 10px;
+            color: #777787;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .timeline-step.active .step-text {
+            color: #9b8cff;
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg fixed-top">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <span class="brand-icon"><i class="bi bi-recycle"></i></span>
+            SmartResale
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <i class="bi bi-list"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="/analyze">Analyze Item</a></li>
+                <li class="nav-item"><a class="nav-link" href="/marketplace">Marketplace</a></li>
+                {% if session.get('user_id') %}
+                    <li class="nav-item"><a class="nav-link active" href="/dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/logout"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<section class="requests-page">
+    <div class="requests-container">
+        <div class="requests-card">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+                <h3 class="fw-bold text-white mb-0"><i class="bi bi-chat-left-text-fill text-primary me-2"></i> Sent Requests</h3>
+                <a href="/dashboard" class="btn btn-outline-custom py-2 px-3 fw-semibold text-center small">Dashboard</a>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show mb-4" role="alert" style="font-size:13px; border-radius:10px; background: rgba(113,87,255,0.06); border-color: rgba(113,87,255,0.15); color: #9b8cff;">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter:invert(1);"></button>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            {% if requests %}
+                <div class="req-list">
+                    {% for r in requests %}
+                        <div class="req-item">
+                            <div class="d-flex flex-column flex-md-row justify-content-between">
+                                <div>
+                                    <span class="text-primary fw-bold text-uppercase" style="font-size:10px; letter-spacing:1px;">Contact Request</span>
+                                    <h4 class="text-white fw-bold mt-1 mb-2">
+                                        <a href="/item/{{ r.product_id }}" class="text-white text-decoration-none hover-purple">{{ r.title }}</a>
+                                    </h4>
+                                    <div class="d-flex flex-wrap gap-3 text-muted small mb-3">
+                                        <div><i class="bi bi-person me-1"></i> Seller: <strong>{{ r.seller_name }}</strong></div>
+                                        <div><i class="bi bi-calendar3 me-1"></i> Sent: <strong>{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else 'N/A' }}</strong></div>
+                                        <div><i class="bi bi-info-circle me-1"></i> Status: 
+                                            {% if r.status == 'Pending' %}
+                                                <span class="badge bg-warning text-dark">Pending Approval</span>
+                                            {% elif r.status == 'Accepted' %}
+                                                <span class="badge bg-success">Request Accepted</span>
+                                            {% elif r.status == 'Rejected' %}
+                                                <span class="badge bg-danger">Request Rejected</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Cancelled</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="p-3 rounded mb-3" style="background:#13131d; border: 1px solid #292936;">
+                                        <div class="text-secondary" style="font-size:9px; text-transform:uppercase; font-weight:700;">My Message</div>
+                                        <div class="text-white mt-1" style="font-size:13px; line-height:1.5;">"{{ r.message }}"</div>
+                                    </div>
+
+                                    {% if r.status == 'Accepted' %}
+                                        <div class="p-3 rounded border border-success mb-3" style="background: rgba(32,184,120,0.06);">
+                                            <div class="fw-bold text-success" style="font-size:12px;"><i class="bi bi-unlock-fill me-1"></i> Seller Contact Details Disclosed:</div>
+                                            <div class="text-white mt-2 small">
+                                                <div><i class="bi bi-person-fill text-muted me-2"></i> Name: <strong>{{ r.seller_name }}</strong></div>
+                                                <div><i class="bi bi-telephone-fill text-muted me-2"></i> Phone: <strong>{{ r.seller_phone if r.seller_phone else 'Not provided' }}</strong></div>
+                                                <div><i class="bi bi-envelope-fill text-muted me-2"></i> Email: <strong>{{ r.seller_email if r.seller_email else 'Not provided' }}</strong></div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-3 mt-md-0">
+                                    {% if r.status == 'Pending' %}
+                                        <form action="/my/request/{{ r.id }}/cancel" method="POST">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm px-3 py-2 fw-semibold" onclick="return confirm('Are you sure you want to cancel this request?')">
+                                                <i class="bi bi-x-circle me-1"></i> Cancel Request
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- TIMELINE -->
+                            <div class="timeline">
+                                <div class="timeline-step completed">
+                                    <div class="step-circle"><i class="bi bi-send"></i></div>
+                                    <div class="step-text">Request Sent</div>
+                                </div>
+                                <div class="timeline-step {% if r.status != 'Cancelled' %}completed{% endif %}">
+                                    <div class="step-circle"><i class="bi bi-eye"></i></div>
+                                    <div class="step-text">Seller Notified</div>
+                                </div>
+                                <div class="timeline-step {% if r.status == 'Accepted' %}completed{% elif r.status == 'Rejected' %}rejected{% elif r.status == 'Pending' %}active{% endif %}">
+                                    <div class="step-circle">
+                                        {% if r.status == 'Accepted' %}
+                                            <i class="bi bi-check-lg"></i>
+                                        {% elif r.status == 'Rejected' %}
+                                            <i class="bi bi-x-lg"></i>
+                                        {% else %}
+                                            <i class="bi bi-hourglass-split"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="step-text">
+                                        {% if r.status == 'Accepted' %}
+                                            Accepted
+                                        {% elif r.status == 'Rejected' %}
+                                            Rejected
+                                        {% else %}
+                                            Response Pending
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="timeline-step {% if r.status == 'Accepted' %}completed{% endif %}">
+                                    <div class="step-circle"><i class="bi bi-telephone"></i></div>
+                                    <div class="step-text">Contact Ready</div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <div class="brand-icon mx-auto mb-3" style="width:60px; height:60px; font-size:24px; background: rgba(113,87,255,0.1); color: #9b8cff;"><i class="bi bi-chat-left-quote"></i></div>
+                    <h5 class="text-white fw-bold">No Contact Requests Sent</h5>
+                    <p class="text-muted small mb-3">You haven't contacted any sellers yet.</p>
+                    <a href="/marketplace" class="btn btn-primary-custom py-2 px-3 fw-semibold">Browse Marketplace</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<footer>
+    SmartResale • Verified Used Item Marketplace
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

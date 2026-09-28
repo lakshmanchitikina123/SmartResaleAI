@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verified Marketplace | SmartResale</title>
+
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg fixed-top">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <span class="brand-icon"><i class="bi bi-recycle"></i></span>
+            SmartResale
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <i class="bi bi-list"></i>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/"><i class="bi bi-house"></i> Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/analyze"><i class="bi bi-stars"></i> Analyze Item</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/marketplace"><i class="bi bi-shop"></i> Marketplace</a>
+                </li>
+                {% if session.get('user_id') %}
+                    <li class="nav-item"><a class="nav-link" href="/dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                    <li class="nav-item position-relative">
+                        <a class="nav-link" href="/notifications">
+                            <i class="bi bi-bell"></i>
+                            {% if unread_notifications_count > 0 %}
+                                <span class="position-absolute top-1 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:9px;padding:3px 6px;">{{ unread_notifications_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/logout"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                {% else %}
+                    <li class="nav-item"><a class="nav-link" href="/login"><i class="bi bi-person"></i> Login</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- MARKETPLACE MAIN -->
+<section class="marketplace-page" style="padding-top: 130px; padding-bottom: 80px;">
+    <div class="container" style="max-width: 1200px;">
+
+        <!-- HEADER -->
+        <div class="text-center mb-4">
+            <div class="section-tag mb-3">
+                <i class="bi bi-shield-check text-success"></i>
+                Verified Marketplace
+            </div>
+            <h1 class="fw-bold text-white mb-2" style="font-family: 'Outfit', sans-serif; font-size: 42px;">
+                Pre-Owned Marketplace
+            </h1>
+            <p class="text-muted" style="max-width: 600px; margin: auto;">
+                Explore genuine second-hand items with fair market pricing calculated by our SmartResale algorithm.
+            </p>
+        </div>
+
+        <!-- FLASH MESSAGES -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show mb-4 border-0 rounded-4 shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- QUICK CATEGORY PILLS -->
+        <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+            <a href="/marketplace{% if q %}?q={{ q }}{% endif %}" class="btn btn-sm {% if not category %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+                All Items
+            </a>
+            <a href="/marketplace?category=Vehicles{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {% if category == 'Vehicles' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+                <i class="bi bi-car-front me-1 text-warning"></i> Vehicles
+            </a>
+            <a href="/marketplace?category=Electronics{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {% if category == 'Electronics' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+                <i class="bi bi-phone me-1 text-info"></i> Electronics & Mobiles
+            </a>
+            <a href="/marketplace?category=Home%20Appliances{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {% if category == 'Home Appliances' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+                <i class="bi bi-tv me-1 text-success"></i> Home Appliances
+            </a>
+            <a href="/marketplace?category=Furniture%20%26%20Home%20Decor{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {% if category == 'Furniture & Home Decor' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+                <i class="bi bi-lamp me-1 text-light"></i> Furniture
+            </a>
+        </div>
+
+        <!-- SEARCH AND FILTER PANEL -->
+        <div class="filter-panel mb-4">
+            <form action="/marketplace" method="GET">
+                <div class="row g-3">
+                    <!-- SEARCH -->
+                    <div class="col-md-4">
+                        <label class="form-label mb-1"><i class="bi bi-search"></i> Keywords</label>
+                        <input type="text" name="q" class="form-control-custom" placeholder="Search cars, phones, brands..." value="{{ q }}">
+                    </div>
+
+                    <!-- CATEGORY -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label mb-1"><i class="bi bi-grid-3x3-gap"></i> Category</label>
+                        <select name="category" class="form-select form-control-custom">
+                            <option value="">All Categories</option>
+                            {% for cat in ['Vehicles', 'Electronics', 'Home Appliances', 'Furniture & Home Decor', 'Books, Sports & Hobbies', 'Other'] %}
+                                <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- CONDITION -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label mb-1"><i class="bi bi-patch-check"></i> Condition</label>
+                        <select name="condition" class="form-select form-control-custom">
+                            <option value="">Any Condition</option>
+                            {% for cond in ['New', 'Like New', 'Good', 'Fair', 'Used', 'Poor'] %}
+                                <option value="{{ cond }}" {% if condition == cond %}selected{% endif %}>{{ cond }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- LOCATION -->
+                    <div class="col-md-2 col-6">
+                        <label class="form-label mb-1"><i class="bi bi-geo-alt"></i> Location</label>
+                        <input type="text" name="location" class="form-control-custom" placeholder="e.g. Bangalore" value="{{ location }}">
+                    </div>
+
+                    <!-- MIN PRICE -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label mb-1"><i class="bi bi-currency-rupee"></i> Min Price (₹)</label>
+                        <input type="number" name="price_min" class="form-control-custom" placeholder="0" value="{{ price_min }}">
+                    </div>
+
+                    <!-- MAX PRICE -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label mb-1"><i class="bi bi-currency-rupee"></i> Max Price (₹)</label>
+                        <input type="number" name="price_max" class="form-control-custom" placeholder="2500000" value="{{ price_max }}">
+                    </div>
+
+                    <!-- SORT -->
+                    <div class="col-md-3 col-6">
+                        <label class="form-label mb-1"><i class="bi bi-sort-down"></i> Sort By</label>
+                        <select name="sort" class="form-select form-control-custom">
+                            <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest Postings</option>
+                            <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+                            <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+                        </select>
+                    </div>
+
+                    <!-- BUTTONS -->
+                    <div class="col-md-3 col-6 d-flex align-items-end gap-2">
+                        <button type="submit" class="btn-primary-custom w-100 py-3 justify-content-center">
+                            <i class="bi bi-funnel-fill"></i> Filter
+                        </button>
+                        <a href="/marketplace" class="btn-outline-custom w-100 py-3 justify-content-center">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- RESULTS HEADER -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold text-white mb-0" style="font-family: 'Outfit', sans-serif;">
+                <i class="bi bi-grid-fill text-primary me-2"></i> Verified Items ({{ products|length }})
+            </h4>
+            <a href="/analyze" class="btn btn-sm btn-outline-primary border-primary border-opacity-50 text-light rounded-pill px-3 py-2">
+                <i class="bi bi-plus-lg me-1"></i> Post Your Item
+            </a>
+        </div>
+
+        <!-- PRODUCT GRID -->
+        {% if products %}
+            <div class="row g-4">
+                {% for item in products %}
+                <div class="col-sm-6 col-lg-4">
+                    <div class="prod-card">
+                        <div class="prod-img-box">
+                            {% if item.image_url %}
+                                <img src="{{ item.image_url }}" alt="{{ item.title }}" referrerpolicy="no-referrer" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="text-center text-muted" style="display: none;">
+                                    <i class="bi bi-tag display-4 text-secondary"></i>
+                                    <div class="small mt-1 text-muted" style="font-size: 11px;">No Photo</div>
+                                </div>
+                            {% else %}
+                                <div class="text-center text-muted">
+                                    {% if 'car' in item.title.lower() or 'vehicle' in item.category.lower() or 'kia' in item.title.lower() or 'hyundai' in item.title.lower() or 'toyota' in item.title.lower() %}
+                                        <i class="bi bi-car-front display-4 text-warning"></i>
+                                    {% elif 'phone' in item.title.lower() or 'mobile' in item.category.lower() or 'iphone' in item.title.lower() or 'samsung' in item.title.lower() %}
+                                        <i class="bi bi-phone display-4 text-info"></i>
+                                    {% elif 'laptop' in item.title.lower() or 'computer' in item.category.lower() or 'macbook' in item.title.lower() %}
+                                        <i class="bi bi-laptop display-4 text-primary"></i>
+                                    {% else %}
+                                        <i class="bi bi-box-seam display-4 text-secondary"></i>
+                                    {% endif %}
+                                    <div class="small mt-2 text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">NO PHOTO</div>
+                                </div>
+                            {% endif %}
+                            <span class="badge-condition">{{ item.condition_type or item.condition or 'Good' }}</span>
+                            <span class="badge-ai"><i class="bi bi-shield-check me-1"></i> Verified Price</span>
+                            {% if item.purchase_type == 'secondhand' %}
+                                <span class="badge" style="background:rgba(255,193,7,0.15);color:#ffc107;border:1px solid rgba(255,193,7,0.3);font-size:9px;border-radius:6px;padding:3px 7px;">🏷️ 2nd Hand</span>
+                            {% else %}
+                                <span class="badge" style="background:rgba(32,184,120,0.12);color:#45c98a;border:1px solid rgba(32,184,120,0.25);font-size:9px;border-radius:6px;padding:3px 7px;">✅ 1st Hand</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="prod-body">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-info fw-bold" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px;">
+                                        {{ item.category }}
+                                    </span>
+                                    {% if item.brand %}
+                                        <span class="badge bg-dark border border-secondary text-light px-2" style="font-size: 10px;">{{ item.brand }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <h5 class="prod-title mt-1">
+                                    <a href="/item/{{ item.id }}" class="text-white text-decoration-none">
+                                        {{ item.title }}
+                                    </a>
+                                </h5>
+
+                                <p class="text-muted small mb-3 text-truncate" title="{{ item.description }}">
+                                    {{ item.description or 'Authentic item listed by verified seller.' }}
+                                </p>
+
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <span class="prod-price">₹{{ "{:,.0f}".format(item.price) }}</span>
+                                    {% if item.original_price and item.original_price > item.price %}
+                                        <span class="orig-price">₹{{ "{:,.0f}".format(item.original_price) }}</span>
+                                        <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25" style="font-size: 10px;">
+                                            Save {{ "{:,.0f}".format(((item.original_price - item.price) / item.original_price) * 100) }}%
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="seller-box">
+                                <div class="seller-info">
+                                    <div class="seller-avatar">{{ item.seller_name[:1] if item.seller_name else 'S' }}</div>
+                                    <div>
+                                        <div class="text-white fw-bold" style="font-size: 13px;">{{ item.seller_name or 'Verified Seller' }}</div>
+                                        <div class="text-muted" style="font-size: 11px;"><i class="bi bi-geo-alt"></i> {{ item.location.split(',')[0] }}</div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    {% if item.seller_contact %}
+                                        <a href="https://wa.me/{{ item.seller_contact.replace(' ', '').replace('+', '').replace('-', '') }}?text=Hi,%20I%20am%20interested%20in%20your%20listing:%20{{ item.title }}" target="_blank" class="contact-btn whatsapp-btn" title="Chat on WhatsApp">
+                                            <i class="bi bi-whatsapp"></i> Chat
+                                        </a>
+                                    {% endif %}
+                                    <a href="/item/{{ item.id }}" class="btn btn-sm btn-outline-secondary border-secondary border-opacity-25 text-light px-2" title="View Details">
+                                        <i class="bi bi-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="bi bi-search text-muted display-3"></i>
+                </div>
+                <h4 class="text-white fw-bold">No Items Matched Your Criteria</h4>
+                <p class="text-muted">Try clearing some filters or search for another keyword.</p>
+                <a href="/marketplace" class="btn-primary-custom mt-2">
+                    <i class="bi bi-arrow-clockwise"></i> Clear Filters
+                </a>
+            </div>
+        {% endif %}
+
+    </div>
+</section>
+
+<footer>
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <span class="brand-icon"><i class="bi bi-recycle"></i></span>
+                SmartResale
+            </div>
+            <p class="mb-0">Verified second-hand commerce powered by precision market valuation.</p>
+        </div>
+        <div class="footer-bottom text-center">
+            © 2026 SmartResale • All Rights Reserved.
+        </div>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

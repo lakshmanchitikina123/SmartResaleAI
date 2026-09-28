@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile | SmartResale</title>
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .profile-page {
+            min-height: 100vh;
+            padding: 120px 20px 80px;
+        }
+        .profile-container {
+            max-width: 800px;
+            margin: auto;
+        }
+        .profile-card {
+            background: #13131d;
+            border: 1px solid #292936;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg fixed-top">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <span class="brand-icon"><i class="bi bi-recycle"></i></span>
+            SmartResale
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <i class="bi bi-list"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="/analyze">Analyze Item</a></li>
+                <li class="nav-item"><a class="nav-link" href="/marketplace">Marketplace</a></li>
+                {% if session.get('user_id') %}
+                    <li class="nav-item"><a class="nav-link active" href="/dashboard"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/logout"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<section class="profile-page">
+    <div class="profile-container">
+        <div class="profile-card">
+            <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
+                <h3 class="fw-bold text-white mb-0"><i class="bi bi-person-gear me-2 text-primary"></i> Edit Profile</h3>
+                <a href="/dashboard" class="btn btn-outline-custom py-2 px-3 fw-semibold text-center small"><i class="bi bi-arrow-left"></i> Dashboard</a>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show mb-4" role="alert" style="font-size:13px; border-radius:10px; background: rgba(113,87,255,0.06); border-color: rgba(113,87,255,0.15); color: #9b8cff;">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter:invert(1);"></button>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form action="/profile" method="POST">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="form-label"><i class="bi bi-person"></i> Full Name</label>
+                        <input type="text" name="name" class="form-control-custom" value="{{ current_user.name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label"><i class="bi bi-envelope"></i> Email Address (Read-only)</label>
+                        <input type="email" class="form-control-custom" value="{{ current_user.email }}" readonly disabled style="opacity: 0.6; cursor: not-allowed;">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label"><i class="bi bi-telephone"></i> Phone Number</label>
+                        <input type="text" name="phone_number" class="form-control-custom" value="{{ current_user.phone_number }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label"><i class="bi bi-patch-check"></i> Verification Status</label>
+                        <div class="mt-2">
+                            {% if current_user.is_verified %}
+                                <span class="badge py-2 px-3 rounded-pill" style="background: rgba(32, 184, 120, 0.12); border: 1px solid rgba(32, 184, 120, 0.25); color: #45c98a;">
+                                    <i class="bi bi-check-circle-fill me-1"></i> ✓ Verified Seller
+                                </span>
+                            {% else %}
+                                <span class="badge py-2 px-3 rounded-pill mb-2 mb-md-0" style="background: rgba(220,53,69,0.12); border: 1px solid rgba(220,53,69,0.25); color: #ea868f;">
+                                    <i class="bi bi-x-circle-fill me-1"></i> Unverified
+                                </span>
+                                <a href="/verify_otp" class="btn btn-warning btn-sm fw-bold ms-md-2 py-1 px-3" style="color:#000;">
+                                    Verify Now
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-12 mt-4 pt-3 border-top border-secondary">
+                        <h5 class="text-white fw-bold mb-3"><i class="bi bi-bar-chart me-1"></i> Account Statistics</h5>
+                        <div class="row text-center">
+                            <div class="col-4 border-end border-secondary">
+                                <div class="text-muted small">Listings</div>
+                                <div class="fs-4 fw-bold text-white">{{ listings_count }}</div>
+                            </div>
+                            <div class="col-4 border-end border-secondary">
+                                <div class="text-muted small">Requests</div>
+                                <div class="fs-4 fw-bold text-white">{{ requests_count }}</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted small">Joined On</div>
+                                <div style="font-size:12px; font-weight: bold; margin-top: 5px; color: #fff;">{{ current_user.created_at.strftime('%Y-%m-%d') if current_user.created_at else 'N/A' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 mt-4">
+                        <button type="submit" class="btn btn-primary-custom w-100 py-3 fw-bold">
+                            <i class="bi bi-check-lg me-2"></i> Save Profile Details
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<footer>
+    SmartResale • Verified Used Item Marketplace
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
