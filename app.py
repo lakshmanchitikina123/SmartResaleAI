@@ -27,16 +27,15 @@ def allowed_file(filename):
 
 DB_ENGINE = "sqlite"
 SQLITE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
-
 def test_mysql_connection():
     """Attempt MySQL connection. Return conn if successful, otherwise None."""
     try:
         conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST", "mysql-183e7433-lakshmanchitikina123-a18e.f.aivencloud.com"),
-            user=os.getenv("DB_USER", "avnadmin"),
-            password=os.getenv("DB_PASSWORD", "AVNS_nZ_JCEfem70FTj1L-Pq"),
+            host=os.getenv("DB_HOST", ""),
+            user=os.getenv("DB_USER", ""),
+            password=os.getenv("DB_PASSWORD", ""),
             database=os.getenv("DB_NAME", "defaultdb"),
-            port=int(os.getenv("DB_PORT", 18035)),
+            port=int(os.getenv("DB_PORT", "18035")),
             connection_timeout=2
         )
         if conn.is_connected():
