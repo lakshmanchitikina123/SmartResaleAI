@@ -25,7 +25,7 @@ def allowed_file(filename):
 # DATABASE ENGINE (Cloud MySQL + Automatic SQLite Fallback)
 # =========================================================
 
-DB_ENGINE = "sqlite"
+DB_ENGINE = "mysql"
 SQLITE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
 def test_mysql_connection():
     """Attempt MySQL connection with SSL for Aiven."""
