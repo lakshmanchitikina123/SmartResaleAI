@@ -28,22 +28,24 @@ def allowed_file(filename):
 DB_ENGINE = "sqlite"
 SQLITE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
 def test_mysql_connection():
-    """Attempt MySQL connection. Return conn if successful, otherwise None."""
+    """Attempt MySQL connection with SSL for Aiven."""
     try:
         conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST", ""),
-            user=os.getenv("DB_USER", ""),
-            password=os.getenv("DB_PASSWORD", ""),
+            host=os.getenv("DB_HOST", "mysql-183e7433-lakshmanchitikina123-a18e.f.aivencloud.com"),
+            user=os.getenv("DB_USER", "avnadmin"),
+            password=os.getenv("DB_PASSWORD", "AVNS_nZ_JCEfem70FTj1L-Pq"),
             database=os.getenv("DB_NAME", "defaultdb"),
             port=int(os.getenv("DB_PORT", "18035")),
-            connection_timeout=2
+            ssl_ca="",             # Enable SSL mode
+            ssl_verify_cert=False, # Allows Aiven's self-signed/cloud certs
+            connection_timeout=10
         )
         if conn.is_connected():
             return conn
-    except Exception:
+    except Exception as e:
+        print(f"MySQL Connection Error: {e}") # Print error to Render logs instead of hiding it!
         pass
     return None
-
 def get_db():
     """Returns an active database connection (MySQL or SQLite)."""
     global DB_ENGINE
