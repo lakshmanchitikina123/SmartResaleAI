@@ -202,17 +202,33 @@
                                     <div class="small mt-2 text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">NO PHOTO</div>
                                 </div>
                             {% endif %}
-                            <span class="badge-condition">{{ item.condition_type or item.condition or 'Good' }}</span>
-                            <span class="badge-ai"><i class="bi bi-shield-check me-1"></i> Verified Price</span>
+                            {% if item.deal %}
+                                <span class="badge position-absolute top-0 start-0 m-2 px-2 py-1 rounded-pill" style="background: {{ item.deal.bg_color }}; color: {{ item.deal.color }}; border: 1px solid {{ item.deal.border_color }}; font-size: 10px; font-weight: 700; z-index: 2;">
+                                    {{ item.deal.badge_short }}
+                                </span>
+                            {% endif %}
+                            {% if item.trust %}
+                                <span class="badge position-absolute top-0 end-0 m-2 px-2 py-1 rounded-pill" style="background: rgba(15, 23, 42, 0.85); color: {{ item.trust.level_color }}; border: 1px solid {{ item.trust.level_color }}66; font-size: 9px; font-weight: 700; z-index: 2;">
+                                    <i class="bi bi-shield-check me-1"></i>{{ item.trust.score }}% Trust
+                                </span>
+                            {% endif %}
+                            <span class="badge-condition" style="bottom: 8px; left: 8px;">{{ item.condition_type or item.condition or 'Good' }}</span>
                         </div>
                         <div class="prod-body">
                             <div>
                                 <span class="text-info fw-bold" style="font-size: 11px; text-transform: uppercase;">{{ item.category }}</span>
                                 <h5 class="prod-title mt-1">{{ item.title }}</h5>
-                                <div class="d-flex align-items-baseline mt-2">
+                                <div class="d-flex align-items-baseline gap-2 mt-2 flex-wrap">
                                     <span class="prod-price">₹{{ "{:,.0f}".format(item.price) }}</span>
-                                    {% if item.original_price and item.original_price > item.price %}
-                                        <span class="orig-price">₹{{ "{:,.0f}".format(item.original_price) }}</span>
+                                    {% if item.val and item.val.fair_price and item.val.fair_price > 0 %}
+                                        <span class="small" style="font-size: 11px; color: #94a3b8;">
+                                            AI Fair: ₹{{ "{:,.0f}".format(item.val.fair_price) }}
+                                        </span>
+                                    {% endif %}
+                                    {% if item.deal and item.deal.savings_amount and item.deal.savings_amount > 0 %}
+                                        <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25" style="font-size: 10px;">
+                                            Save ₹{{ "{:,.0f}".format(item.deal.savings_amount) }}
+                                        </span>
                                     {% endif %}
                                 </div>
                             </div>

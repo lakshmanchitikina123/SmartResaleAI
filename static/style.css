@@ -1530,3 +1530,40 @@ footer p {
     border: 1px solid rgba(239, 68, 68, 0.35);
     color: #f87171;
 }
+
+/* =========================================================
+   NEXT-GEN AI SUITE: DEAL METER, SCAM SHIELD & SMART OFFERS
+   ========================================================= */
+
+.smart-offer-pill:hover {
+    background: rgba(99, 102, 241, 0.18) !important;
+    border-color: rgba(99, 102, 241, 0.5) !important;
+    transform: translateY(-2px);
+    cursor: pointer;
+}
+
+.smart-offer-pill:active {
+    transform: translateY(0);
+}
+
+.deal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.shield-safe {
+    border-color: rgba(32, 184, 120, 0.4) !important;
+}
+
+.shield-moderate {
+    border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+.shield-risk {
+    border-color: rgba(239, 68, 68, 0.4) !important;
+}

@@ -92,19 +92,22 @@
 
         <!-- QUICK CATEGORY PILLS -->
         <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
-            <a href="/marketplace{% if q %}?q={{ q }}{% endif %}" class="btn btn-sm {% if not category %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+            <a href="/marketplace{% if q %}?q={{ q }}{% endif %}" class="btn btn-sm {% if not category and not deal_filter %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
                 All Items
             </a>
-            <a href="/marketplace?category=Vehicles{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {% if category == 'Vehicles' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+            <a href="/marketplace?deal=great{% if q %}&q={{ q }}{% endif %}{% if category %}&category={{ category }}{% endif %}" class="btn btn-sm {% if deal_filter == 'great' %}btn-success text-white shadow-sm{% else %}btn-outline-success{% endif %} rounded-pill px-3 py-2 fw-bold">
+                🔥 Great Deals Only
+            </a>
+            <a href="/marketplace?category=Vehicles{% if q %}&q={{ q }}{% endif %}{% if deal_filter %}&deal={{ deal_filter }}{% endif %}" class="btn btn-sm {% if category == 'Vehicles' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
                 <i class="bi bi-car-front me-1 text-warning"></i> Vehicles
             </a>
-            <a href="/marketplace?category=Electronics{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {% if category == 'Electronics' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+            <a href="/marketplace?category=Electronics{% if q %}&q={{ q }}{% endif %}{% if deal_filter %}&deal={{ deal_filter }}{% endif %}" class="btn btn-sm {% if category == 'Electronics' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
                 <i class="bi bi-phone me-1 text-info"></i> Electronics & Mobiles
             </a>
-            <a href="/marketplace?category=Home%20Appliances{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {% if category == 'Home Appliances' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+            <a href="/marketplace?category=Home%20Appliances{% if q %}&q={{ q }}{% endif %}{% if deal_filter %}&deal={{ deal_filter }}{% endif %}" class="btn btn-sm {% if category == 'Home Appliances' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
                 <i class="bi bi-tv me-1 text-success"></i> Home Appliances
             </a>
-            <a href="/marketplace?category=Furniture%20%26%20Home%20Decor{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {% if category == 'Furniture & Home Decor' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
+            <a href="/marketplace?category=Furniture%20%26%20Home%20Decor{% if q %}&q={{ q }}{% endif %}{% if deal_filter %}&deal={{ deal_filter }}{% endif %}" class="btn btn-sm {% if category == 'Furniture & Home Decor' %}btn-primary-custom text-white{% else %}btn-outline-custom text-muted{% endif %} rounded-pill px-3 py-2">
                 <i class="bi bi-lamp me-1 text-light"></i> Furniture
             </a>
         </div>
@@ -112,6 +115,9 @@
         <!-- SEARCH AND FILTER PANEL -->
         <div class="filter-panel mb-4">
             <form action="/marketplace" method="GET">
+                {% if deal_filter %}
+                    <input type="hidden" name="deal" value="{{ deal_filter }}">
+                {% endif %}
                 <div class="row g-3">
                     <!-- SEARCH -->
                     <div class="col-md-4">
@@ -164,6 +170,7 @@
                         <label class="form-label mb-1"><i class="bi bi-sort-down"></i> Sort By</label>
                         <select name="sort" class="form-select form-control-custom">
                             <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest Postings</option>
+                            <option value="deals" {% if sort == 'deals' %}selected{% endif %}>🔥 Best Deals & Savings</option>
                             <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
                             <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
                         </select>
@@ -219,12 +226,25 @@
                                     <div class="small mt-2 text-muted fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">NO PHOTO</div>
                                 </div>
                             {% endif %}
-                            <span class="badge-condition">{{ item.condition_type or item.condition or 'Good' }}</span>
-                            <span class="badge-ai"><i class="bi bi-shield-check me-1"></i> Verified Price</span>
+                            
+                            <!-- AI BADGES (Deal Meter & Trust Score) -->
+                            {% if item.deal %}
+                                <span class="badge position-absolute top-0 start-0 m-2 px-2 py-1 rounded-pill" style="background: {{ item.deal.bg_color }}; color: {{ item.deal.color }}; border: 1px solid {{ item.deal.border_color }}; font-size: 10px; font-weight: 700; backdrop-filter: blur(8px); z-index: 2;">
+                                    {{ item.deal.badge_short }}
+                                </span>
+                            {% endif %}
+
+                            {% if item.trust %}
+                                <span class="badge position-absolute top-0 end-0 m-2 px-2 py-1 rounded-pill" style="background: rgba(15, 23, 42, 0.85); color: {{ item.trust.level_color }}; border: 1px solid {{ item.trust.level_color }}66; font-size: 9px; font-weight: 700; backdrop-filter: blur(8px); z-index: 2;">
+                                    <i class="bi bi-shield-check me-1"></i>{{ item.trust.score }}% Trust
+                                </span>
+                            {% endif %}
+
+                            <span class="badge-condition" style="bottom: 8px; left: 8px;">{{ item.condition_type or item.condition or 'Good' }}</span>
                             {% if item.purchase_type == 'secondhand' %}
-                                <span class="badge" style="background:rgba(255,193,7,0.15);color:#ffc107;border:1px solid rgba(255,193,7,0.3);font-size:9px;border-radius:6px;padding:3px 7px;">🏷️ 2nd Hand</span>
+                                <span class="badge" style="position: absolute; bottom: 8px; right: 8px; background:rgba(255,193,7,0.2);color:#ffc107;border:1px solid rgba(255,193,7,0.4);font-size:9px;border-radius:6px;padding:3px 7px; z-index: 2;">🏷️ 2nd Hand</span>
                             {% else %}
-                                <span class="badge" style="background:rgba(32,184,120,0.12);color:#45c98a;border:1px solid rgba(32,184,120,0.25);font-size:9px;border-radius:6px;padding:3px 7px;">✅ 1st Hand</span>
+                                <span class="badge" style="position: absolute; bottom: 8px; right: 8px; background:rgba(32,184,120,0.2);color:#45c98a;border:1px solid rgba(32,184,120,0.4);font-size:9px;border-radius:6px;padding:3px 7px; z-index: 2;">✅ 1st Hand</span>
                             {% endif %}
                         </div>
 
@@ -249,12 +269,16 @@
                                     {{ item.description or 'Authentic item listed by verified seller.' }}
                                 </p>
 
-                                <div class="d-flex align-items-baseline gap-2">
+                                <div class="d-flex align-items-baseline gap-2 flex-wrap">
                                     <span class="prod-price">₹{{ "{:,.0f}".format(item.price) }}</span>
-                                    {% if item.original_price and item.original_price > item.price %}
-                                        <span class="orig-price">₹{{ "{:,.0f}".format(item.original_price) }}</span>
+                                    {% if item.val and item.val.fair_price and item.val.fair_price > 0 %}
+                                        <span class="small" style="font-size: 11px; color: #94a3b8;" title="SmartResale Algorithmic Fair Valuation">
+                                            AI Fair: ₹{{ "{:,.0f}".format(item.val.fair_price) }}
+                                        </span>
+                                    {% endif %}
+                                    {% if item.deal and item.deal.savings_amount and item.deal.savings_amount > 0 %}
                                         <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25" style="font-size: 10px;">
-                                            Save {{ "{:,.0f}".format(((item.original_price - item.price) / item.original_price) * 100) }}%
+                                            Save ₹{{ "{:,.0f}".format(item.deal.savings_amount) }}
                                         </span>
                                     {% endif %}
                                 </div>

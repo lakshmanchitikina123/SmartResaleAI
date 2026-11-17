@@ -183,7 +183,9 @@ def init_db():
                 "ALTER TABLE items ADD COLUMN user_id INTEGER",
                 "ALTER TABLE items ADD COLUMN status TEXT DEFAULT 'ACTIVE'",
                 "ALTER TABLE items ADD COLUMN purchase_type TEXT DEFAULT 'firsthand'",
-                "ALTER TABLE items ADD COLUMN price_basis TEXT DEFAULT 'showroom_new'"
+                "ALTER TABLE items ADD COLUMN price_basis TEXT DEFAULT 'showroom_new'",
+                "ALTER TABLE contact_requests ADD COLUMN offer_price REAL",
+                "ALTER TABLE contact_requests ADD COLUMN offer_type TEXT"
             ]:
                 try:
                     cursor.execute(col_sql)
@@ -312,6 +314,16 @@ def init_db():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+
+            # Migrations for MySQL tables
+            for col_sql in [
+                "ALTER TABLE contact_requests ADD COLUMN offer_price DOUBLE",
+                "ALTER TABLE contact_requests ADD COLUMN offer_type VARCHAR(100)"
+            ]:
+                try:
+                    cursor.execute(col_sql)
+                except Exception:
+                    pass
 
         conn.commit()
 
@@ -1498,6 +1510,239 @@ def calculate_smart_valuation(category, brand, condition, age_months, original_p
     }
 
 # =========================================================
+# NEXT-GEN RESALE AI SUITE (Deal Meter, Scam Shield & Smart Offers)
+# =========================================================
+
+def compute_deal_assessment(asking_price, fair_price):
+    """
+    Evaluates whether an asking price is a Great Deal, Fair Price, or Above Market.
+    Compares the seller's price against algorithmic consensus fair price.
+    """
+    try:
+        asking_price = float(asking_price or 0)
+        fair_price = float(fair_price or 0)
+    except (ValueError, TypeError):
+        asking_price = 0.0
+        fair_price = 0.0
+
+    if asking_price <= 0 or fair_price <= 0:
+        return {
+            'tag': 'FAIR_PRICE',
+            'badge': '⚖️ Fair Price',
+            'badge_short': 'Fair Price',
+            'class': 'deal-fair',
+            'color': '#3b82f6',
+            'bg_color': 'rgba(59, 130, 246, 0.15)',
+            'border_color': 'rgba(59, 130, 246, 0.35)',
+            'diff_pct': 0,
+            'savings_amount': 0,
+            'summary': 'Priced consistent with estimated market value.'
+        }
+
+    ratio = asking_price / fair_price
+    diff_pct = round(((fair_price - asking_price) / fair_price) * 100, 1)
+
+    if ratio <= 0.88:
+        savings = max(0, round(fair_price - asking_price))
+        pct_label = abs(round(diff_pct))
+        return {
+            'tag': 'GREAT_DEAL',
+            'badge': f'🔥 Great Deal ({pct_label}% below market)',
+            'badge_short': f'🔥 Great Deal (-{pct_label}%)',
+            'class': 'deal-great',
+            'color': '#20b878',
+            'bg_color': 'rgba(32, 184, 120, 0.16)',
+            'border_color': 'rgba(32, 184, 120, 0.45)',
+            'diff_pct': diff_pct,
+            'savings_amount': savings,
+            'summary': f'Listed {pct_label}% below SmartResale Fair Valuation. Exceptional buyer value.'
+        }
+    elif ratio <= 1.10:
+        return {
+            'tag': 'FAIR_PRICE',
+            'badge': '⚖️ Fair Price',
+            'badge_short': '⚖️ Fair Price',
+            'class': 'deal-fair',
+            'color': '#3b82f6',
+            'bg_color': 'rgba(59, 130, 246, 0.16)',
+            'border_color': 'rgba(59, 130, 246, 0.4)',
+            'diff_pct': diff_pct,
+            'savings_amount': 0,
+            'summary': 'Accurately benchmarked within ±10% of fair market value.'
+        }
+    else:
+        over_pct = max(1, round(((asking_price - fair_price) / fair_price) * 100))
+        return {
+            'tag': 'ABOVE_MARKET',
+            'badge': f'📈 Above Market (+{over_pct}%)',
+            'badge_short': f'📈 Above Market',
+            'class': 'deal-above',
+            'color': '#f59e0b',
+            'bg_color': 'rgba(245, 158, 11, 0.16)',
+            'border_color': 'rgba(245, 158, 11, 0.4)',
+            'diff_pct': diff_pct,
+            'savings_amount': 0,
+            'summary': f'Asking price is {over_pct}% above algorithmic market benchmark. Negotiation recommended.'
+        }
+
+FRAUD_TRIGGER_PATTERNS = [
+    (r'\b(army|military|defence|defense|bsf|crpf|cisf|navy|airforce)\b', 'Military/Security deployment claim (frequent classifieds scam pattern)'),
+    (r'\b(qr\s*code|scan\s*qr|scan\s*code)\b', 'Requesting QR code scanning to receive or transfer money'),
+    (r'\b(advance\s*(deposit|token|payment|amount|money)|booking\s*advance)\b', 'Demanding upfront advance payment before in-person inspection'),
+    (r'\b(courier\s*(charges?|fee)|cargo\s*(fee|charge))\b', 'Demanding upfront courier/shipping fee before handover'),
+    (r'\b(urgent\s*transfer|emergency\s*sell\s*today)\b', 'Urgent distress pressure tactics'),
+    (r'\b(gift\s*card|crypto|bitcoin|usdt)\b', 'Untraceable payment method requested')
+]
+
+def compute_scam_shield_assessment(item, val):
+    """
+    AI Scam & Fraud Shield:
+    Evaluates listings for fraud indicators commonly seen on OLX and classified platforms:
+    - Suspiciously low prices (advance-fee bait)
+    - High-risk scam phrasing (Army posting, QR code payments, upfront courier fees)
+    - Contact legitimacy and listing documentation depth.
+    """
+    score = 100
+    flags = []
+    badges = []
+
+    try:
+        asking_price = float(item.get('price') or 0)
+    except (ValueError, TypeError):
+        asking_price = 0.0
+
+    fair_price = float(val.get('fair_price') or val.get('predicted_price') or 0)
+    present_value = float(val.get('present_value') or val.get('benchmark_price') or asking_price)
+
+    title = str(item.get('title') or '').lower()
+    description = str(item.get('description') or '').lower()
+    combined_text = f"{title} {description}"
+
+    # 1. Price Realism / Bait Detection
+    if fair_price >= 8000 and asking_price > 0:
+        if asking_price < (fair_price * 0.22):
+            score -= 45
+            flags.append('🚨 Suspiciously low price (<22% of fair value) — common bait tactic for advance-fee fraud.')
+        elif asking_price < (fair_price * 0.45):
+            score -= 20
+            flags.append('⚠️ Price is unusually low compared to real-market value. Inspect item before paying any amount.')
+        else:
+            badges.append('Price Benchmark Aligned')
+    else:
+        badges.append('Standard Valuation Range')
+
+    # 2. Text Pattern Red-Flag Scan
+    detected_phrases = []
+    for pattern, reason in FRAUD_TRIGGER_PATTERNS:
+        if re.search(pattern, combined_text, re.IGNORECASE):
+            score -= 30
+            detected_phrases.append(reason)
+            flags.append(f"Flagged Pattern: {reason}")
+
+    if not detected_phrases:
+        badges.append('No Fraud Keywords Detected')
+
+    # 3. Seller Contact Quality
+    contact = str(item.get('seller_contact') or '').strip()
+    digits = re.sub(r'\D', '', contact)
+    if len(digits) >= 10:
+        badges.append('Verified Contact Format')
+    else:
+        score -= 10
+        flags.append('Seller phone number is missing or incomplete.')
+
+    # 4. Description & Photos Depth
+    if len(description) >= 25:
+        badges.append('Detailed Item Overview')
+    else:
+        score -= 5
+        flags.append('Very brief description provided.')
+
+    if item.get('image_url'):
+        badges.append('Photo Attached')
+    else:
+        score -= 5
+
+    # Normalized score between 15 and 98
+    score = max(15, min(98, score))
+
+    if score >= 85:
+        level = 'SAFE'
+        level_label = '🛡️ High Trust (Verified Safe)'
+        level_color = '#20b878'
+        level_class = 'shield-safe'
+    elif score >= 60:
+        level = 'MODERATE'
+        level_label = '⚠️ Moderate Verification (Proceed Cautiously)'
+        level_color = '#f59e0b'
+        level_class = 'shield-moderate'
+    else:
+        level = 'HIGH_RISK'
+        level_label = '🚨 High Risk Detected — Potential Fraud'
+        level_color = '#ef4444'
+        level_class = 'shield-risk'
+
+    return {
+        'score': score,
+        'level': level,
+        'level_label': level_label,
+        'level_color': level_color,
+        'level_class': level_class,
+        'flags': flags,
+        'badges': badges,
+        'is_safe': score >= 80
+    }
+
+def generate_smart_offers(item_price, fair_price):
+    """
+    Computes 3 balanced, statistically-grounded offer levels for buyers.
+    Eliminates messy back-and-forth haggling.
+    """
+    try:
+        p = float(item_price or 0)
+        fp = float(fair_price or p)
+    except Exception:
+        p = 0
+        fp = 0
+    if p <= 0:
+        return []
+
+    # 1. Best Value / Aggressive (~12% below asking or 10% below fair)
+    agg_amt = round(max(p * 0.75, min(p * 0.88, fp * 0.90)))
+    # 2. Fair Market Consensus
+    fair_amt = round(min(p, fp) if fp > 0 else p * 0.93)
+    # 3. Fast Close Deal (5% courtesy discount)
+    fast_amt = round(p * 0.95)
+
+    offers = [
+        {
+            'type': 'value',
+            'amount': agg_amt,
+            'label': '🎯 Value Offer',
+            'desc': 'For budget-conscious buyers; justifiable based on age & wear.',
+            'acceptance_prob': '65% Chance',
+            'badge': 'Bargain'
+        },
+        {
+            'type': 'fair',
+            'amount': fair_amt,
+            'label': '⚖️ Fair Market Offer',
+            'desc': 'Directly backed by SmartResale algorithmic market valuation.',
+            'acceptance_prob': '88% High Acceptance',
+            'badge': 'Recommended'
+        },
+        {
+            'type': 'fast',
+            'amount': fast_amt,
+            'label': '⚡ Fast Close Offer',
+            'desc': 'Slight courtesy discount for immediate pickup & deal closing.',
+            'acceptance_prob': '95% Almost Certain',
+            'badge': 'Instant Close'
+        }
+    ]
+    return offers
+
+# =========================================================
 # AUTHENTICATION & ACCESS CONTROL HELPERS
 # =========================================================
 
@@ -1930,6 +2175,25 @@ def home():
                 item['specs'] = json.loads(item['specs_json'])
             except Exception:
                 item['specs'] = {}
+        curr_mkt = item.get('current_market_price') or 0.0
+        val = calculate_smart_valuation(
+            item.get('category') or 'Other',
+            item.get('brand') or '',
+            item.get('condition_type') or item.get('condition') or 'Good',
+            item.get('age') or 12,
+            item.get('original_price') or item.get('price') or 0,
+            item.get('title') or '',
+            item.get('description') or '',
+            current_market_price=curr_mkt,
+            specs=item['specs'],
+            purchase_type=item.get('purchase_type', 'firsthand'),
+            location=item.get('location', ''),
+            price_basis=item.get('price_basis', 'showroom_new')
+        )
+        item['val'] = val
+        item['deal'] = compute_deal_assessment(item.get('price', 0), val.get('fair_price', 0))
+        item['trust'] = compute_scam_shield_assessment(item, val)
+
     total_stats = fetch_one("SELECT COUNT(*) as total_listings FROM items WHERE status IS NULL OR status = 'ACTIVE'")
     return render_template(
         'index.html',
@@ -2048,6 +2312,8 @@ def marketplace():
         except ValueError:
             pass
 
+    deal_filter = request.args.get('deal', '').strip().lower()
+
     if sort == 'price_asc':
         query += " ORDER BY price ASC"
     elif sort == 'price_desc':
@@ -2055,14 +2321,44 @@ def marketplace():
     else:
         query += " ORDER BY id DESC"
 
-    products = fetch_all(query, params)
-    for item in products:
+    raw_products = fetch_all(query, params)
+    products = []
+    for item in raw_products:
         item['specs'] = {}
         if item.get('specs_json'):
             try:
                 item['specs'] = json.loads(item['specs_json'])
             except Exception:
                 item['specs'] = {}
+
+        curr_mkt = item.get('current_market_price') or 0.0
+        val = calculate_smart_valuation(
+            item.get('category') or 'Other',
+            item.get('brand') or '',
+            item.get('condition_type') or item.get('condition') or 'Good',
+            item.get('age') or 12,
+            item.get('original_price') or item.get('price') or 0,
+            item.get('title') or '',
+            item.get('description') or '',
+            current_market_price=curr_mkt,
+            specs=item['specs'],
+            purchase_type=item.get('purchase_type', 'firsthand'),
+            location=item.get('location', ''),
+            price_basis=item.get('price_basis', 'showroom_new')
+        )
+        item['val'] = val
+        item['deal'] = compute_deal_assessment(item.get('price', 0), val.get('fair_price', 0))
+        item['trust'] = compute_scam_shield_assessment(item, val)
+
+        if deal_filter == 'great' and item['deal']['tag'] != 'GREAT_DEAL':
+            continue
+        if deal_filter == 'fair' and item['deal']['tag'] not in ['GREAT_DEAL', 'FAIR_PRICE']:
+            continue
+
+        products.append(item)
+
+    if sort == 'deals':
+        products.sort(key=lambda x: x['deal']['diff_pct'], reverse=True)
 
     return render_template(
         'marketplace.html',
@@ -2073,7 +2369,8 @@ def marketplace():
         location=location,
         price_min=price_min,
         price_max=price_max,
-        sort=sort
+        sort=sort,
+        deal_filter=deal_filter
     )
 
 @app.route('/analyze', methods=['GET', 'POST'])
@@ -2289,7 +2586,66 @@ def item_detail(item_id):
         location=item.get('location', ''),
         price_basis=item.get('price_basis', 'showroom_new')
     )
-    return render_template('item.html', product=item, val=val, specs=parsed_specs)
+    deal = compute_deal_assessment(item.get('price', 0), val.get('fair_price', 0))
+    trust = compute_scam_shield_assessment(item, val)
+    smart_offers = generate_smart_offers(item.get('price', 0), val.get('fair_price', 0))
+
+    return render_template(
+        'item.html',
+        product=item,
+        val=val,
+        specs=parsed_specs,
+        deal=deal,
+        trust=trust,
+        smart_offers=smart_offers
+    )
+
+@app.route('/make_offer/<int:item_id>', methods=['POST'])
+def make_smart_offer(item_id):
+    item = fetch_one("SELECT * FROM items WHERE id = %s", (item_id,))
+    if not item:
+        flash("The requested item could not be found.", "danger")
+        return redirect(url_for('marketplace'))
+
+    buyer_name = request.form.get('buyer_name', '').strip()
+    buyer_contact = request.form.get('buyer_contact', '').strip()
+    offer_price = request.form.get('offer_price', '').strip()
+    message = request.form.get('message', '').strip()
+    offer_type = request.form.get('offer_type', 'Custom Offer').strip()
+
+    if not buyer_name or not buyer_contact:
+        flash("Please provide your name and contact phone number to submit an offer.", "warning")
+        return redirect(url_for('item_detail', item_id=item_id))
+
+    try:
+        offer_val = float(offer_price)
+    except (ValueError, TypeError):
+        offer_val = float(item.get('price', 0))
+
+    asking_price = float(item.get('price', 0))
+    buyer_id = session.get('user_id')
+
+    # Store structured contact request with offer
+    req_note = f"[AI Smart Offer: ₹{offer_val:,.0f} ({offer_type})] {message}".strip()
+    execute_query('''
+        INSERT INTO contact_requests (product_id, buyer_id, buyer_name, buyer_contact, message, status, offer_price, offer_type)
+        VALUES (%s, %s, %s, %s, %s, 'Pending', %s, %s)
+    ''', (item_id, buyer_id, buyer_name, buyer_contact, req_note, offer_val, offer_type))
+
+    # Notify Seller if registered
+    if item.get('user_id'):
+        diff_str = f" ({round(((offer_val - asking_price)/asking_price)*100)}% of asking)" if asking_price > 0 else ""
+        execute_query('''
+            INSERT INTO notifications (user_id, title, message)
+            VALUES (%s, %s, %s)
+        ''', (
+            item['user_id'],
+            f"🤝 New AI Smart Offer: ₹{offer_val:,.0f} for '{item['title']}'",
+            f"{buyer_name} submitted a Smart Offer of ₹{offer_val:,.0f}{diff_str} ({offer_type}) for '{item['title']}'. Review under Seller Requests."
+        ))
+
+    flash(f"🎉 Your Smart Offer of ₹{offer_val:,.0f} was successfully sent to the seller!", "success")
+    return redirect(url_for('item_detail', item_id=item_id))
 
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5000))

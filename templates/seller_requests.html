@@ -96,6 +96,16 @@
                                     <h4 class="text-white fw-bold mt-1 mb-2">
                                         <a href="/item/{{ r.product_id }}" class="text-white text-decoration-none hover-purple">{{ r.title }}</a>
                                     </h4>
+                                    {% if r.offer_price %}
+                                        <div class="mb-2">
+                                            <span class="badge px-3 py-2 rounded-pill" style="background: rgba(32, 184, 120, 0.18); color: #45c98a; border: 1px solid rgba(32, 184, 120, 0.4); font-size: 13px; font-weight: 700;">
+                                                <i class="bi bi-tag-fill me-1"></i> AI Smart Offer: ₹{{ "{:,.0f}".format(r.offer_price) }}
+                                                {% if r.offer_type %}
+                                                    <span class="text-white-50 small ms-1">({{ r.offer_type }})</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    {% endif %}
                                     <div class="d-flex flex-wrap gap-3 text-muted small mb-3">
                                         <div><i class="bi bi-person me-1"></i> Buyer Name: <strong>{{ r.buyer_name }}</strong></div>
                                         <div><i class="bi bi-calendar3 me-1"></i> Received: <strong>{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else 'N/A' }}</strong></div>

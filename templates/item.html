@@ -102,9 +102,15 @@
                         <i class="bi bi-patch-check text-info me-1"></i> {{ product.condition_type or product.condition or 'Good' }}
                     </span>
 
-                    <span class="badge position-absolute top-0 end-0 m-3 px-3 py-2 rounded-pill" style="background: var(--grad-primary);">
-                        <i class="bi bi-shield-check me-1"></i> Verified Fair Price
-                    </span>
+                    {% if deal %}
+                        <span class="badge position-absolute top-0 end-0 m-3 px-3 py-2 rounded-pill" style="background: {{ deal.bg_color }}; color: {{ deal.color }}; border: 1px solid {{ deal.border_color }}; font-weight: 700;">
+                            {{ deal.badge_short }}
+                        </span>
+                    {% else %}
+                        <span class="badge position-absolute top-0 end-0 m-3 px-3 py-2 rounded-pill" style="background: var(--grad-primary);">
+                            <i class="bi bi-shield-check me-1"></i> Verified Fair Price
+                        </span>
+                    {% endif %}
                 </div>
 
                 <!-- DETAILS COLUMN -->
@@ -131,12 +137,16 @@
                                     <span class="badge" style="background: rgba(32,184,120,0.18); color:#45c98a; border: 1px solid rgba(32,184,120,0.4); font-size:11px;">✅ 1st Hand (Single Owner)</span>
                                 {% endif %}
                             </div>
-                            <div class="d-flex align-items-baseline gap-3">
+                            <div class="d-flex align-items-baseline gap-3 flex-wrap">
                                 <strong class="fs-1 m-0">₹{{ "{:,.0f}".format(product.price) }}</strong>
-                                {% if product.original_price and product.original_price > product.price %}
-                                    <span class="orig-price fs-5">₹{{ "{:,.0f}".format(product.original_price) }}</span>
+                                {% if val and val.fair_price and val.fair_price > 0 %}
+                                    <span class="badge bg-dark border border-secondary text-light px-2 py-1" style="font-size: 12px;">
+                                        AI Fair Value: ₹{{ "{:,.0f}".format(val.fair_price) }}
+                                    </span>
+                                {% endif %}
+                                {% if deal and deal.savings_amount and deal.savings_amount > 0 %}
                                     <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">
-                                        Save {{ "{:,.0f}".format(((product.original_price - product.price) / product.original_price) * 100) }}%
+                                        Save ₹{{ "{:,.0f}".format(deal.savings_amount) }}
                                     </span>
                                 {% endif %}
                             </div>
@@ -146,6 +156,62 @@
                                 </div>
                             {% endif %}
                         </div>
+
+                        <!-- 1. AI DEAL METER CARD -->
+                        {% if deal %}
+                        <div class="mb-3 p-3 rounded-4" style="background: {{ deal.bg_color }}; border: 1px solid {{ deal.border_color }};">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fs-5">{{ '🔥' if deal.tag == 'GREAT_DEAL' else ('⚖️' if deal.tag == 'FAIR_PRICE' else '📈') }}</span>
+                                    <span class="fw-bold" style="color: {{ deal.color }}; font-size: 14px;">{{ deal.badge }}</span>
+                                </div>
+                                <span class="badge bg-dark bg-opacity-50 text-light px-2 py-1" style="font-size: 10px;">Market Alignment</span>
+                            </div>
+                            <p class="mb-0 small" style="color: #e2e8f0; font-size: 12px; line-height: 1.5;">
+                                {{ deal.summary }}
+                            </p>
+                        </div>
+                        {% endif %}
+
+                        <!-- 2. AI SCAM & TRUST SHIELD -->
+                        {% if trust %}
+                        <div class="mb-4 p-3 rounded-4" style="background: rgba(13, 16, 32, 0.85); border: 1px solid {{ trust.level_color }}44;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-shield-lock-fill fs-5" style="color: {{ trust.level_color }};"></i>
+                                    <div>
+                                        <div class="fw-bold text-white" style="font-size: 13px;">AI Scam Shield Assessment</div>
+                                        <div class="small" style="color: {{ trust.level_color }}; font-size: 11px;">{{ trust.level_label }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge px-3 py-1 rounded-pill" style="background: {{ trust.level_color }}22; color: {{ trust.level_color }}; border: 1px solid {{ trust.level_color }}66; font-weight: 800; font-size: 13px;">
+                                        {{ trust.score }}/100 Trust
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                {% for b in trust.badges %}
+                                    <span class="badge bg-dark bg-opacity-75 text-light border border-secondary border-opacity-25 py-1 px-2" style="font-size: 10px;">
+                                        <i class="bi bi-check2 text-success me-1"></i>{{ b }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+
+                            {% if trust.flags %}
+                                <div class="p-2 rounded bg-danger bg-opacity-10 border border-danger border-opacity-30 mt-2">
+                                    {% for f in trust.flags %}
+                                        <div class="text-danger small" style="font-size: 11px;"><i class="bi bi-exclamation-triangle-fill me-1"></i> {{ f }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-muted small" style="font-size: 11px;">
+                                    <i class="bi bi-shield-check text-success me-1"></i> Protected listing. Zero advance fees required. Always inspect item before releasing payment.
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
 
                         <!-- DESCRIPTION -->
                         <h6 class="text-white fw-bold mb-2">Item Overview</h6>
@@ -190,7 +256,7 @@
                         </div>
                     </div>
 
-                    <!-- SELLER CONTACT BOX -->
+                    <!-- SELLER CONTACT & SMART OFFER BOX -->
                     <div class="seller-box p-3 mt-3">
                         <div class="d-flex align-items-center gap-3">
                             <div class="seller-avatar" style="width: 44px; height: 44px; font-size: 18px;">
@@ -202,15 +268,25 @@
                             </div>
                         </div>
 
-                        <div class="d-flex gap-2 mt-3 w-100">
-                            {% if product.seller_contact %}
-                                <a href="https://wa.me/{{ product.seller_contact.replace(' ', '').replace('+', '').replace('-', '') }}?text=Hi,%20I%20am%20interested%20in%20your%20listing:%20{{ product.title }}" target="_blank" class="contact-btn whatsapp-btn flex-grow-1 justify-content-center py-2 fs-6">
-                                    <i class="bi bi-whatsapp"></i> WhatsApp Chat
+                        <div class="d-flex flex-column gap-2 mt-3 w-100">
+                            <!-- 3. MAKE AI SMART OFFER BUTTON -->
+                            <button type="button" class="btn btn-primary-custom w-100 py-2 justify-content-center fw-bold" data-bs-toggle="modal" data-bs-target="#smartOfferModal">
+                                <i class="bi bi-tag-fill me-2 text-warning"></i> 🤝 Make AI Smart Offer
+                            </button>
+
+                            <div class="d-flex gap-2">
+                                {% if product.seller_contact %}
+                                    <a href="https://wa.me/{{ product.seller_contact.replace(' ', '').replace('+', '').replace('-', '') }}?text=Hi,%20I%20am%20interested%20in%20your%20listing:%20{{ product.title }}" target="_blank" class="contact-btn whatsapp-btn flex-grow-1 justify-content-center py-2 fs-6">
+                                        <i class="bi bi-whatsapp"></i> WhatsApp Chat
+                                    </a>
+                                    <a href="tel:{{ product.seller_contact }}" class="btn btn-outline-primary border-primary border-opacity-50 text-light px-3 py-2">
+                                        <i class="bi bi-telephone-fill"></i>
+                                    </a>
+                                {% endif %}
+                                <a href="/contact/{{ product.id }}" class="btn btn-outline-secondary border-secondary border-opacity-25 text-light px-3 py-2" title="Send In-App Contact Request">
+                                    <i class="bi bi-envelope"></i>
                                 </a>
-                                <a href="tel:{{ product.seller_contact }}" class="btn btn-outline-primary border-primary border-opacity-50 text-light px-3 py-2">
-                                    <i class="bi bi-telephone-fill"></i>
-                                </a>
-                            {% endif %}
+                            </div>
                         </div>
                     </div>
 
@@ -220,6 +296,166 @@
 
     </div>
 </section>
+
+<!-- AI SMART OFFER MODAL -->
+<div class="modal fade" id="smartOfferModal" tabindex="-1" aria-labelledby="smartOfferModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 580px;">
+        <div class="modal-content text-white" style="background: #0f1224; border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 24px; box-shadow: 0 25px 60px rgba(0,0,0,0.7); backdrop-filter: blur(25px);">
+            <div class="modal-header border-bottom border-secondary border-opacity-25 pb-3 pt-4 px-4">
+                <div>
+                    <span class="badge rounded-pill mb-1" style="background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); font-size: 11px;">
+                        <i class="bi bi-robot me-1"></i> AI Negotiation Engine
+                    </span>
+                    <h4 class="modal-title fw-bold text-white mb-0" id="smartOfferModalLabel" style="font-family: 'Outfit', sans-serif;">
+                        Make an AI Smart Offer
+                    </h4>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form action="/make_offer/{{ product.id }}" method="POST">
+                <div class="modal-body p-4">
+                    <!-- BENCHMARK HEADER -->
+                    <div class="p-3 rounded-4 mb-4 d-flex justify-content-between align-items-center" style="background: rgba(19, 23, 48, 0.9); border: 1px solid rgba(255,255,255,0.08);">
+                        <div>
+                            <div class="text-muted small" style="font-size: 11px;">Seller Asking Price</div>
+                            <strong class="fs-5 text-white">₹{{ "{:,.0f}".format(product.price) }}</strong>
+                        </div>
+                        <div class="text-center">
+                            <i class="bi bi-arrow-left-right text-info"></i>
+                        </div>
+                        <div class="text-end">
+                            <div class="text-info small" style="font-size: 11px;">AI Fair Valuation</div>
+                            <strong class="fs-5 text-info">₹{{ "{:,.0f}".format(val.fair_price if val and val.fair_price else product.price) }}</strong>
+                        </div>
+                    </div>
+
+                    <!-- 1-CLICK AI PRE-CALCULATED OFFERS -->
+                    <label class="form-label text-white fw-bold mb-2" style="font-size: 13px;">
+                        <i class="bi bi-magic text-warning me-1"></i> Choose a 1-Click AI Strategy:
+                    </label>
+                    <div class="row g-2 mb-4">
+                        {% for off in smart_offers %}
+                        <div class="col-4">
+                            <button type="button" class="btn w-100 p-2 text-start smart-offer-pill h-100 position-relative" 
+                                    onclick="selectPresetOffer({{ off.amount }}, '{{ off.label }}')"
+                                    style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; transition: all 0.2s ease;">
+                                <div class="badge rounded-pill mb-1" style="font-size: 9px; background: rgba(99, 102, 241, 0.25); color: #c7d2fe;">{{ off.badge }}</div>
+                                <div class="fw-bold text-white" style="font-size: 14px;">₹{{ "{:,.0f}".format(off.amount) }}</div>
+                                <div class="text-muted" style="font-size: 10px; line-height: 1.2;">{{ off.acceptance_prob }}</div>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- CUSTOM OFFER INPUT -->
+                    <div class="mb-3">
+                        <label class="form-label text-white fw-bold d-flex justify-content-between" style="font-size: 13px;">
+                            <span>Your Offer Amount (₹)</span>
+                            <span id="offerPercentTag" class="text-info small" style="font-size: 11px;">100% of asking</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-secondary text-light">₹</span>
+                            <input type="number" name="offer_price" id="offerPriceInput" class="form-control-custom w-auto flex-grow-1" 
+                                   value="{{ "{:.0f}".format(product.price) }}" min="1" step="500" required oninput="updateFairnessMeter()">
+                        </div>
+                        <input type="hidden" name="offer_type" id="offerTypeInput" value="Custom Offer">
+                    </div>
+
+                    <!-- LIVE ACCEPTANCE PROBABILITY GAUGE -->
+                    <div class="p-3 rounded-3 mb-4" style="background: rgba(12, 14, 28, 0.85); border: 1px solid rgba(255,255,255,0.08);">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted" style="font-size: 11px;">Seller Acceptance Probability</span>
+                            <span id="gaugeLabel" class="fw-bold small" style="color: #20b878; font-size: 11px;">95% High Acceptance</span>
+                        </div>
+                        <div class="progress" style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+                            <div id="gaugeBar" class="progress-bar" role="progressbar" style="width: 95%; background: #20b878; border-radius: 4px; transition: width 0.3s ease, background 0.3s ease;"></div>
+                        </div>
+                        <div id="gaugeAdvice" class="small mt-2" style="font-size: 11px; color: #cbd5e1;">
+                            Fair offer matching seller expectations.
+                        </div>
+                    </div>
+
+                    <!-- BUYER IDENTITY DETAILS -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">Your Full Name</label>
+                            <input type="text" name="buyer_name" class="form-control-custom" placeholder="e.g. Rahul Sharma" 
+                                   value="{{ current_user.name if current_user else '' }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">Your Phone Number</label>
+                            <input type="text" name="buyer_contact" class="form-control-custom" placeholder="e.g. +91 98765 43210" 
+                                   value="{{ current_user.phone_number if current_user else '' }}" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label small text-muted mb-1">Optional Note for Seller</label>
+                        <textarea name="message" class="form-control-custom" rows="2" placeholder="e.g. Ready for instant pickup today if agreed."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-top border-secondary border-opacity-25 px-4 py-3">
+                    <button type="button" class="btn btn-outline-secondary border-secondary border-opacity-25 text-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary-custom rounded-pill px-4 fw-bold">
+                        <i class="bi bi-send-fill me-1"></i> Transmit Offer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const askingPrice = {{ product.price|float }};
+const fairPrice = {{ val.fair_price|float if val and val.fair_price else product.price|float }};
+
+function selectPresetOffer(amt, label) {
+    document.getElementById('offerPriceInput').value = amt;
+    document.getElementById('offerTypeInput').value = label;
+    updateFairnessMeter();
+}
+
+function updateFairnessMeter() {
+    const inputVal = parseFloat(document.getElementById('offerPriceInput').value) || 0;
+    const gaugeBar = document.getElementById('gaugeBar');
+    const gaugeLabel = document.getElementById('gaugeLabel');
+    const gaugeAdvice = document.getElementById('gaugeAdvice');
+    const pctTag = document.getElementById('offerPercentTag');
+
+    if (askingPrice <= 0) return;
+    const ratio = inputVal / askingPrice;
+    const pct = Math.round(ratio * 100);
+    pctTag.textContent = pct + "% of asking price";
+
+    if (ratio >= 0.95) {
+        gaugeBar.style.width = "95%";
+        gaugeBar.style.background = "#20b878";
+        gaugeLabel.style.color = "#20b878";
+        gaugeLabel.textContent = "95% High Acceptance Rate";
+        gaugeAdvice.textContent = "✅ Generous & fair offer. Seller is almost certain to accept immediately.";
+    } else if (ratio >= 0.85) {
+        gaugeBar.style.width = "82%";
+        gaugeBar.style.background = "#3b82f6";
+        gaugeLabel.style.color = "#3b82f6";
+        gaugeLabel.textContent = "82% Strong Acceptance Chance";
+        gaugeAdvice.textContent = "⚖️ Balanced market offer backed by SmartResale algorithmic depreciation.";
+    } else if (ratio >= 0.72) {
+        gaugeBar.style.width = "50%";
+        gaugeBar.style.background = "#f59e0b";
+        gaugeLabel.style.color = "#f59e0b";
+        gaugeLabel.textContent = "50% Moderate (Seller May Counter)";
+        gaugeAdvice.textContent = "⚡ Aggressive discount. Seller may counter or negotiate slightly higher.";
+    } else {
+        gaugeBar.style.width = "18%";
+        gaugeBar.style.background = "#ef4444";
+        gaugeLabel.style.color = "#ef4444";
+        gaugeLabel.textContent = "15% Very Lowball (High Rejection)";
+        gaugeAdvice.textContent = "🚨 Lowball offer (>28% discount). Typical classified sellers ignore or reject this.";
+    }
+}
+</script>
 
 <footer>
     <div class="container">
