@@ -2573,13 +2573,13 @@ def item_detail(item_id):
 
     curr_mkt = item.get('current_market_price') or 0.0
     val = calculate_smart_valuation(
-        item['category'], 
-        item['brand'], 
-        item['condition_type'], 
-        item['age'] or 12, 
-        item['original_price'] or item['price'],
-        item['title'],
-        item['description'] or '',
+        item.get('category') or 'Other', 
+        item.get('brand') or '', 
+        item.get('condition_type') or item.get('condition') or 'Good', 
+        item.get('age') or 12, 
+        item.get('original_price') or item.get('price') or 0,
+        item.get('title') or '',
+        item.get('description') or '',
         current_market_price=curr_mkt,
         specs=parsed_specs,
         purchase_type=item.get('purchase_type', 'firsthand'),
