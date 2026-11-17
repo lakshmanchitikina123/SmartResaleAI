@@ -276,7 +276,7 @@
 
                             <div class="d-flex gap-2">
                                 {% if product.seller_contact %}
-                                    <a href="https://wa.me/{{ product.seller_contact.replace(' ', '').replace('+', '').replace('-', '') }}?text=Hi,%20I%20am%20interested%20in%20your%20listing:%20{{ product.title }}" target="_blank" class="contact-btn whatsapp-btn flex-grow-1 justify-content-center py-2 fs-6">
+                                    <a href="https://wa.me/{{ (product.seller_contact | string).replace(' ', '').replace('+', '').replace('-', '') }}?text=Hi,%20I%20am%20interested%20in%20your%20listing:%20{{ product.title }}" target="_blank" class="contact-btn whatsapp-btn flex-grow-1 justify-content-center py-2 fs-6">
                                         <i class="bi bi-whatsapp"></i> WhatsApp Chat
                                     </a>
                                     <a href="tel:{{ product.seller_contact }}" class="btn btn-outline-primary border-primary border-opacity-50 text-light px-3 py-2">

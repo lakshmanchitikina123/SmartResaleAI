@@ -22,13 +22,17 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # =========================================================
+# =========================================================
 # DATABASE ENGINE (Cloud MySQL + Automatic SQLite Fallback)
 # =========================================================
 
-DB_ENGINE = "mysql"
+DB_ENGINE = "sqlite"
 SQLITE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
+_mysql_available = None  # Cache MySQL connection status to prevent Gunicorn worker timeout
+
 def test_mysql_connection():
-    """Attempt MySQL connection with SSL for Aiven."""
+    """Attempt fast MySQL connection with SSL for Aiven."""
+    global _mysql_available
     try:
         conn = mysql.connector.connect(
             host=os.getenv("DB_HOST", "mysql-183e7433-lakshmanchitikina123-a18e.f.aivencloud.com"),
@@ -38,18 +42,20 @@ def test_mysql_connection():
             port=int(os.getenv("DB_PORT", "18035")),
             ssl_ca="",             # Enable SSL mode
             ssl_verify_cert=False, # Allows Aiven's self-signed/cloud certs
-            connection_timeout=10
+            connection_timeout=2   # Fast 2s timeout
         )
         if conn.is_connected():
+            _mysql_available = True
             return conn
     except Exception as e:
-        print(f"MySQL Connection Error: {e}") # Print error to Render logs instead of hiding it!
-        pass
+        print(f"[SmartResaleAI] Cloud MySQL Connection Error: {e}. Falling back to SQLite.")
+        _mysql_available = False
     return None
+
 def get_db():
     """Returns an active database connection (MySQL or SQLite)."""
-    global DB_ENGINE
-    if os.getenv("FORCE_MYSQL") == "1" or os.getenv("DB_HOST"):
+    global DB_ENGINE, _mysql_available
+    if _mysql_available is not False and (os.getenv("FORCE_MYSQL") == "1" or os.getenv("DB_HOST")):
         conn = test_mysql_connection()
         if conn:
             DB_ENGINE = "mysql"
@@ -60,13 +66,16 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def is_sqlite_conn(conn):
+    return isinstance(conn, sqlite3.Connection)
+
 def execute_query(query, params=()):
     """Executes INSERT/UPDATE/DELETE queries adaptively across MySQL & SQLite."""
     conn = get_db()
     cursor = conn.cursor()
     last_id = None
     try:
-        if DB_ENGINE == "sqlite":
+        if is_sqlite_conn(conn):
             formatted_query = query.replace("%s", "?")
             cursor.execute(formatted_query, params)
             last_id = cursor.lastrowid
@@ -74,6 +83,8 @@ def execute_query(query, params=()):
             cursor.execute(query, params)
             last_id = cursor.lastrowid
         conn.commit()
+    except Exception as e:
+        print(f"[SmartResaleAI] execute_query error: {e}")
     finally:
         cursor.close()
         conn.close()
@@ -84,7 +95,7 @@ def fetch_all(query, params=()):
     conn = get_db()
     results = []
     try:
-        if DB_ENGINE == "sqlite":
+        if is_sqlite_conn(conn):
             cursor = conn.cursor()
             formatted_query = query.replace("%s", "?")
             cursor.execute(formatted_query, params)
@@ -116,8 +127,14 @@ def fetch_all(query, params=()):
                 row['purchase_type'] = 'firsthand'
             if 'price_basis' in row and not row['price_basis']:
                 row['price_basis'] = 'showroom_new'
+            if 'seller_contact' in row and row['seller_contact'] is not None:
+                row['seller_contact'] = str(row['seller_contact'])
+            if 'location' in row and not row['location']:
+                row['location'] = 'India'
+            if 'seller_name' in row and not row['seller_name']:
+                row['seller_name'] = 'Verified Seller'
     except Exception as e:
-        print(f"Query execution error: {e}")
+        print(f"[SmartResaleAI] fetch_all error: {e}")
     finally:
         conn.close()
     return results
@@ -136,7 +153,7 @@ def init_db():
     conn = get_db()
     cursor = conn.cursor()
     try:
-        if DB_ENGINE == "sqlite":
+        if is_sqlite_conn(conn):
             # Users Table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
@@ -333,7 +350,7 @@ def init_db():
         if user_count == 0:
             admin_pwd = generate_password_hash("admin123")
             user_pwd = generate_password_hash("user123")
-            if DB_ENGINE == "sqlite":
+            if is_sqlite_conn(conn):
                 cursor.execute(
                     "INSERT INTO users (name, email, phone_number, password_hash, is_verified, is_admin) VALUES (?, ?, ?, ?, ?, ?)",
                     ("Admin", "admin@smartresale.com", "+919876543210", admin_pwd, 1, 1)

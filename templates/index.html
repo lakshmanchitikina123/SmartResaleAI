@@ -238,7 +238,7 @@
                                     <div class="seller-avatar">{{ item.seller_name[:1] if item.seller_name else 'S' }}</div>
                                     <div>
                                         <div class="text-white fw-bold" style="font-size: 13px;">{{ item.seller_name or 'Seller' }}</div>
-                                        <div class="text-muted" style="font-size: 11px;"><i class="bi bi-geo-alt"></i> {{ item.location.split(',')[0] }}</div>
+                                        <div class="text-muted" style="font-size: 11px;"><i class="bi bi-geo-alt"></i> {{ (item.location or 'India').split(',')[0] }}</div>
                                     </div>
                                 </div>
                                 <a href="/item/{{ item.id }}" class="contact-btn whatsapp-btn">
