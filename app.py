@@ -33,16 +33,18 @@ _mysql_available = None  # Cache MySQL connection status to prevent Gunicorn wor
 def test_mysql_connection():
     """Attempt fast MySQL connection with SSL for Aiven."""
     global _mysql_available
+    import socket
+    socket.setdefaulttimeout(3)
     try:
         conn = mysql.connector.connect(
             host=os.getenv("DB_HOST", "mysql-183e7433-lakshmanchitikina123-a18e.f.aivencloud.com"),
             user=os.getenv("DB_USER", "avnadmin"),
-            password=os.getenv("DB_PASSWORD", "AVNS_nZ_JCEfem70FTj1L-Pq"),
+            password=os.getenv("DB_PASSWORD", ""),
             database=os.getenv("DB_NAME", "defaultdb"),
             port=int(os.getenv("DB_PORT", "18035")),
             ssl_ca="",             # Enable SSL mode
             ssl_verify_cert=False, # Allows Aiven's self-signed/cloud certs
-            connection_timeout=2   # Fast 2s timeout
+            connection_timeout=3   # Fast 3s timeout
         )
         if conn.is_connected():
             _mysql_available = True
@@ -379,7 +381,17 @@ def init_db():
         cursor.close()
         conn.close()
 
-init_db()
+_db_initialized = False
+
+@app.before_request
+def ensure_db_initialized():
+    global _db_initialized
+    if not _db_initialized:
+        _db_initialized = True
+        try:
+            init_db()
+        except Exception as e:
+            print(f"[SmartResaleAI] DB Init Error on startup: {e}")
 
 # =========================================================
 # NATURAL VALUATION ALGORITHM WITH CURRENT MARKET SURGE & BRAND RECOGNITION
