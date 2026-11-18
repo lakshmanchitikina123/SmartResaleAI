@@ -2664,6 +2664,91 @@ def make_smart_offer(item_id):
     flash(f"🎉 Your Smart Offer of ₹{offer_val:,.0f} was successfully sent to the seller!", "success")
     return redirect(url_for('item_detail', item_id=item_id))
 
+@app.route('/debug_info')
+def debug_info():
+    import traceback, sys
+    report = {
+        "status": "online",
+        "python": sys.version,
+        "env": {k: v for k, v in os.environ.items() if 'DB_' in k or 'FORCE_' in k or 'PORT' in k},
+        "db_engine_var": DB_ENGINE,
+        "sqlite_path": SQLITE_PATH,
+        "sqlite_exists": os.path.exists(SQLITE_PATH),
+        "sqlite_size": os.path.getsize(SQLITE_PATH) if os.path.exists(SQLITE_PATH) else 0,
+    }
+    # Test DB connection
+    try:
+        conn = get_db()
+        report["conn_type"] = str(type(conn))
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM items")
+        report["items_count_query"] = str(cursor.fetchone())
+        conn.close()
+    except Exception as e:
+        report["db_conn_error"] = str(e)
+        report["db_conn_traceback"] = traceback.format_exc()
+
+    # Test fetch_all
+    try:
+        items = fetch_all("SELECT * FROM items WHERE status IS NULL OR status = 'ACTIVE' ORDER BY id DESC LIMIT 4")
+        report["fetch_all_count"] = len(items)
+        report["first_item_keys"] = list(items[0].keys()) if items else []
+    except Exception as e:
+        report["fetch_all_error"] = str(e)
+        report["fetch_all_traceback"] = traceback.format_exc()
+
+    # Test valuation computation
+    try:
+        if items:
+            itm = items[0]
+            val = calculate_smart_valuation(
+                itm.get('category') or 'Other',
+                itm.get('brand') or '',
+                itm.get('condition_type') or itm.get('condition') or 'Good',
+                itm.get('age') or 12,
+                itm.get('original_price') or itm.get('price') or 0,
+                itm.get('title') or '',
+                itm.get('description') or ''
+            )
+            report["valuation_sample_fair_price"] = val.get('fair_price')
+            deal = compute_deal_assessment(itm.get('price', 0), val.get('fair_price', 0))
+            report["deal_sample"] = deal.get('verdict_label')
+            trust = compute_scam_shield_assessment(itm, val)
+            report["trust_sample"] = trust.get('score')
+    except Exception as e:
+        report["valuation_error"] = str(e)
+        report["valuation_traceback"] = traceback.format_exc()
+
+    # Test rendering index.html
+    try:
+        rendered = render_template('index.html', featured_items=items, total_listings=len(items))
+        report["index_rendered_length"] = len(rendered)
+    except Exception as e:
+        report["index_render_error"] = str(e)
+        report["index_render_traceback"] = traceback.format_exc()
+
+    return jsonify(report)
+
+@app.errorhandler(500)
+def handle_internal_server_error(e):
+    import traceback
+    tb = traceback.format_exc()
+    print(f"[SmartResaleAI 500 EXCEPTION]:\n{tb}")
+    return f"""
+    <!doctype html>
+    <html>
+    <head><title>500 Internal Server Error - SmartResaleAI Diagnostic</title></head>
+    <body style="font-family: monospace; background: #0f172a; color: #f87171; padding: 20px;">
+        <h2 style="color: #ef4444;">🚨 SmartResaleAI 500 Internal Error</h2>
+        <p style="color: #cbd5e1;">A runtime exception occurred while processing this request:</p>
+        <div style="background: #1e293b; color: #f1f5f9; padding: 16px; border-radius: 8px; border: 1px solid #334155; overflow-x: auto;">
+            <pre style="margin: 0; white-space: pre-wrap;">{tb or str(e)}</pre>
+        </div>
+        <p style="margin-top: 15px;"><a href="/debug_info" style="color: #38bdf8;">View /debug_info Diagnostics</a></p>
+    </body>
+    </html>
+    """, 500
+
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 5000))
     print(f"[SmartResaleAI] Running on port {port} (Backend Engine: {DB_ENGINE})")
