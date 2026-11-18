@@ -55,24 +55,51 @@ def test_mysql_connection():
     return None
 
 def get_db():
-    """Returns an active database connection (MySQL or SQLite)."""
+    """Returns an active, request-scoped database connection (MySQL or SQLite)."""
     global DB_ENGINE, _mysql_available
+    from flask import g, has_app_context
+    if has_app_context():
+        if hasattr(g, '_database') and g._database is not None:
+            try:
+                if hasattr(g._database, 'is_connected'):
+                    if g._database.is_connected():
+                        return g._database
+                else:
+                    return g._database
+            except Exception:
+                pass
+
+    conn = None
     if _mysql_available is not False and (os.getenv("FORCE_MYSQL") == "1" or os.getenv("DB_HOST")):
         conn = test_mysql_connection()
         if conn:
             DB_ENGINE = "mysql"
-            return conn
 
-    DB_ENGINE = "sqlite"
-    conn = sqlite3.connect(SQLITE_PATH)
-    conn.row_factory = sqlite3.Row
+    if not conn:
+        DB_ENGINE = "sqlite"
+        conn = sqlite3.connect(SQLITE_PATH)
+        conn.row_factory = sqlite3.Row
+
+    if has_app_context():
+        g._database = conn
     return conn
+
+@app.teardown_appcontext
+def close_connection(exception):
+    from flask import g
+    db = getattr(g, '_database', None)
+    if db is not None:
+        try:
+            db.close()
+        except Exception:
+            pass
 
 def is_sqlite_conn(conn):
     return isinstance(conn, sqlite3.Connection)
 
 def execute_query(query, params=()):
     """Executes INSERT/UPDATE/DELETE queries adaptively across MySQL & SQLite."""
+    from flask import has_app_context
     conn = get_db()
     cursor = conn.cursor()
     last_id = None
@@ -89,11 +116,13 @@ def execute_query(query, params=()):
         print(f"[SmartResaleAI] execute_query error: {e}")
     finally:
         cursor.close()
-        conn.close()
+        if not has_app_context():
+            conn.close()
     return last_id
 
 def fetch_all(query, params=()):
     """Fetches all rows adaptively across MySQL & SQLite as dictionaries with normalized types."""
+    from flask import has_app_context
     conn = get_db()
     results = []
     try:
@@ -107,7 +136,7 @@ def fetch_all(query, params=()):
         else:
             cursor = conn.cursor(dictionary=True)
             cursor.execute(query, params)
-            results = cursor.fetchall()
+            results = cursor.fetchall() or []
             cursor.close()
 
         # Normalize rows for datetime, price, and condition consistency
@@ -142,7 +171,8 @@ def fetch_all(query, params=()):
     except Exception as e:
         print(f"[SmartResaleAI] fetch_all error: {e}")
     finally:
-        conn.close()
+        if not has_app_context():
+            conn.close()
     return results
 
 def fetch_one(query, params=()):
@@ -255,7 +285,10 @@ def init_db():
                 )
             ''')
         else:
-            # MySQL Definitions
+            # MySQL Definitions: check if tables already exist to skip slow DDL
+            cursor.execute("SHOW TABLES LIKE 'items'")
+            if cursor.fetchone():
+                return
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -379,7 +412,9 @@ def init_db():
         print(f"DB Init Error: {e}")
     finally:
         cursor.close()
-        conn.close()
+        from flask import has_app_context
+        if not has_app_context():
+            conn.close()
 
 _db_initialized = False
 
@@ -2708,7 +2743,7 @@ def debug_info():
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM items")
         report["items_count_query"] = str(cursor.fetchone())
-        conn.close()
+        cursor.close()
     except Exception as e:
         report["db_conn_error"] = str(e)
         report["db_conn_traceback"] = traceback.format_exc()
