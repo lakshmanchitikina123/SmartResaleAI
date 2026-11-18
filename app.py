@@ -109,7 +109,11 @@ def fetch_all(query, params=()):
             cursor.close()
 
         # Normalize rows for datetime, price, and condition consistency
+        import decimal
         for row in results:
+            for k, v in list(row.items()):
+                if isinstance(v, decimal.Decimal):
+                    row[k] = float(v)
             if 'created_at' in row and isinstance(row['created_at'], str):
                 try:
                     row['created_at'] = datetime.strptime(row['created_at'][:19], '%Y-%m-%d %H:%M:%S')
@@ -1265,6 +1269,15 @@ def calculate_smart_valuation(category, brand, condition, age_months, original_p
     """
     if specs is None:
         specs = {}
+    try:
+        original_price = float(original_price or 0)
+    except (ValueError, TypeError):
+        original_price = 0.0
+    try:
+        current_market_price = float(current_market_price or 0)
+    except (ValueError, TypeError):
+        current_market_price = 0.0
+
     if original_price <= 0:
         return {
             "predicted_price": 0.0,
